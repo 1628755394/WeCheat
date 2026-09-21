@@ -34,17 +34,17 @@ void main() {
     expect(p, contains('天文知识'));
   });
 
-  test('聊天记录无法解析时作为风格参考注入', () {
+  test('聊天记录无法解析时作为发言示例注入', () {
     const profile = AiProfile(chatLog: '哈哈好的呀');
     final p = buildAiSystemPrompt(profile);
-    expect(p, contains('【风格参考】'));
+    expect(p, contains('【说话风格示例】'));
     expect(p, contains('哈哈好的呀'));
   });
 
   test('聊天记录已解析成轮次时不重复注入', () {
     const profile = AiProfile(chatLog: '林晓雨: 哈哈好的呀');
     final p = buildAiSystemPrompt(profile, styleInHistory: true);
-    expect(p, isNot(contains('【风格参考】')));
+    expect(p, isNot(contains('【说话风格示例】')));
   });
 
   test('单行格式聊天记录解析成 few-shot 轮次', () {

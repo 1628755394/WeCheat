@@ -121,7 +121,7 @@ class AiSettingsPage extends ConsumerWidget {
               title: const Text('聊天记录样本', style: TextStyle(fontSize: 16)),
               subtitle: Text(
                 profile.chatLog.isEmpty
-                    ? '粘贴导出的聊天记录，如微信/QQ导出的对话文本'
+                    ? '带发言人名字的记录会解析成真实对话，效果更好'
                     : profile.chatLog,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -134,7 +134,7 @@ class AiSettingsPage extends ConsumerWidget {
                 context,
                 title: '聊天记录样本',
                 initial: profile.chatLog,
-                hint: '粘贴聊天记录原文，如：\n林晓雨 14:20\n晚上一起吃饭吗\n我 14:21\n好啊，去哪吃',
+                hint: '支持两种格式：\n1）名字: 内容  如"林晓雨: 晚上吃啥"\n2）名字 时间+换行  如"林晓雨 14:20\n   晚上吃啥"\n只贴目标人物一人的台词也行',
                 onSave: notifier.setChatLog,
               ),
             ),

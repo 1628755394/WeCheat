@@ -34,10 +34,10 @@ String buildAiSystemPrompt(
     }
   }
 
-  // 聊天记录原文兜底：解析不出对话轮次时仍作为风格参考塞进 prompt
+  // 聊天记录原文兜底：解析不出对话轮次时仍作为发言示例塞进 prompt
   if (profile.chatLog.isNotEmpty && !styleInHistory) {
     buf.write(
-        '\n\n【风格参考】以下是该角色的真实聊天记录，请模仿其说话语气、用词和标点习惯：\n${_truncate(profile.chatLog, 600)}');
+        '\n\n【说话风格示例】以下是该角色说过的话，请模仿其语气、用词和标点习惯：\n${_truncate(profile.chatLog, 1500)}');
   }
 
   return buf.toString();
