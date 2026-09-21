@@ -40,18 +40,22 @@ String buildAiSystemPrompt(
         '\n\n【说话风格示例】以下是该角色说过的话，请模仿其语气、用词和标点习惯：\n${_truncate(profile.chatLog, 1500)}');
   }
 
+  // 已插入 few-shot 轮次时，提示模型模仿历史开头的对话风格
+  if (styleInHistory) {
+    buf.write('\n\n请严格模仿对话历史开头那段真实聊天记录中 assistant 的发言风格（短句、口语化、少用标点）。');
+  }
+
   return buf.toString();
 }
 
-/// 从聊天记录原文解析对话轮次：目标说话人→assistant，其他人→user。
-/// 目标自动取除"我/Me"外发言最多的人（即要模仿的对象）。
-/// 支持三种格式：
-///   名字: 内容                    （单行）
-///   名字 时间                     （下一行是内容）
-///   名字 日期 时间                （PC 微信多选复制导出格式）
-/// 返回空列表表示无法解析。
-List<({String role, String content})> parseStyleTurns(String chatLog,
-    {int max = 20}) {
+/// 解析结果：对话轮次 + 识别出的模仿对象名
+typedef StyleParse = ({
+  List<({String role, String content})> turns,
+  String? target,
+});
+
+/// 解析聊天记录：返回轮次和模仿对象（供 UI 展示解析状态）
+StyleParse parseChatLog(String chatLog, {int max = 20}) {
   final lines = chatLog
       .split('\n')
       .map((l) => l.trim())
@@ -80,7 +84,7 @@ List<({String role, String content})> parseStyleTurns(String chatLog,
       pendingSpeaker = null;
     }
   }
-  if (turns.isEmpty) return const [];
+  if (turns.isEmpty) return (turns: const [], target: null);
 
   // 目标说话人 = 除"我/Me"外发言最多的人
   final freq = <String, int>{};
@@ -88,16 +92,24 @@ List<({String role, String content})> parseStyleTurns(String chatLog,
     if (t.speaker == '我' || t.speaker.toLowerCase() == 'me') continue;
     freq[t.speaker] = (freq[t.speaker] ?? 0) + 1;
   }
-  if (freq.isEmpty) return const [];
+  if (freq.isEmpty) return (turns: const [], target: null);
   final target =
       freq.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
 
-  return [
-    for (final t in turns.reversed.take(max).toList().reversed)
-      (role: t.speaker == target ? 'assistant' : 'user',
-          content: t.content),
-  ];
+  return (
+    turns: [
+      for (final t in turns.reversed.take(max).toList().reversed)
+        (role: t.speaker == target ? 'assistant' : 'user',
+            content: t.content),
+    ],
+    target: target,
+  );
 }
+
+/// 从聊天记录原文解析对话轮次（chat provider / 通话页用）
+List<({String role, String content})> parseStyleTurns(String chatLog,
+        {int max = 20}) =>
+    parseChatLog(chatLog, max: max).turns;
 
 /// 知识库检索：≤3 条全返回；更多时按与用户提问的 bigram 重叠度取前 3
 List<String> _retrieveKnowledge(List<String> entries, String query) {

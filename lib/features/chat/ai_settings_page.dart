@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants.dart';
 import '../../providers/ai_profile_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../services/ai_prompt.dart';
 import '../../services/ollama_service.dart';
 import '../common/edit_field_page.dart';
 
@@ -117,26 +118,33 @@ class AiSettingsPage extends ConsumerWidget {
           const _SectionHeader('聊天记录（AI 会模仿其中人物的语气）'),
           Material(
             color: Colors.white,
-            child: ListTile(
-              title: const Text('聊天记录样本', style: TextStyle(fontSize: 16)),
-              subtitle: Text(
-                profile.chatLog.isEmpty
-                    ? '带发言人名字的记录会解析成真实对话，效果更好'
-                    : profile.chatLog,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary),
-              ),
-              trailing: const Icon(Icons.chevron_right,
-                  color: AppColors.textSecondary),
-              onTap: () => _edit(
-                context,
-                title: '聊天记录样本',
-                initial: profile.chatLog,
-                hint: 'PC微信：右键消息→多选→勾选→复制，粘贴到这里即可\n也支持"名字: 内容"单行格式\n只贴目标人物一人的台词也行',
-                onSave: notifier.setChatLog,
-              ),
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('聊天记录样本',
+                      style: TextStyle(fontSize: 16)),
+                  subtitle: Text(
+                    profile.chatLog.isEmpty
+                        ? '带发言人名字的记录会解析成真实对话，效果更好'
+                        : profile.chatLog,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  trailing: const Icon(Icons.chevron_right,
+                      color: AppColors.textSecondary),
+                  onTap: () => _edit(
+                    context,
+                    title: '聊天记录样本',
+                    initial: profile.chatLog,
+                    hint: 'PC微信：右键消息→多选→勾选→复制，粘贴到这里即可\n也支持"名字: 内容"单行格式\n只贴目标人物一人的台词也行',
+                    onSave: notifier.setChatLog,
+                  ),
+                ),
+                // 解析状态反馈：让用户知道记录是否真的被读懂
+                if (profile.chatLog.isNotEmpty) _parseStatus(profile.chatLog),
+              ],
             ),
           ),
           const Padding(
@@ -147,6 +155,27 @@ class AiSettingsPage extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 聊天记录解析状态：识别出对话轮次显示模仿对象，否则提示格式问题
+  Widget _parseStatus(String chatLog) {
+    final parsed = parseChatLog(chatLog);
+    final String text;
+    final Color color;
+    if (parsed.turns.isNotEmpty) {
+      text = '已识别 ${parsed.turns.length} 轮对话，模仿对象：${parsed.target}';
+      color = AppColors.primary;
+    } else {
+      text = '未识别发言人名字，整段仅作风格示例（建议加"名字:"前缀或"名字 时间"行）';
+      color = Colors.orange;
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(text, style: TextStyle(fontSize: 12, color: color)),
       ),
     );
   }
