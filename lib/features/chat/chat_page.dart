@@ -8,10 +8,12 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants.dart';
 import '../../core/utils/time_utils.dart';
 import '../../core/widgets/app_avatar.dart';
+import '../../models/contact.dart';
 import '../../models/conversation.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/conversation_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../repositories/mock_data.dart';
 
 /// 聊天页：消息气泡 + 时间分组 + 输入框 + AI 流式回复
@@ -136,6 +138,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     final generating = chatAsync.value?.generating ?? false;
     final isAi = conversation?.contact.isAi ?? false;
+    final me = ref.watch(currentUserProvider);
 
     return Scaffold(
       backgroundColor: AppColors.chatBg,
@@ -164,6 +167,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         conversation: conversation,
                         generating: state.generating,
                         scrollController: _scrollController,
+                        me: me,
                       ),
               ),
             ),
@@ -186,12 +190,14 @@ class _MessageList extends StatelessWidget {
   final Conversation? conversation;
   final bool generating;
   final ScrollController scrollController;
+  final Contact me;
 
   const _MessageList({
     required this.messages,
     required this.conversation,
     required this.generating,
     required this.scrollController,
+    required this.me,
   });
 
   @override
@@ -218,6 +224,7 @@ class _MessageList extends StatelessWidget {
               message: msg,
               conversation: conversation,
               streaming: streaming,
+              me: me,
             ),
           ],
         );
@@ -247,11 +254,13 @@ class _MessageRow extends StatelessWidget {
   final Message message;
   final Conversation? conversation;
   final bool streaming;
+  final Contact me;
 
   const _MessageRow({
     required this.message,
     required this.conversation,
     required this.streaming,
+    required this.me,
   });
 
   @override
@@ -280,7 +289,7 @@ class _MessageRow extends StatelessWidget {
             ? [
                 bubble,
                 const SizedBox(width: 8),
-                const AppAvatar(contact: MockData.me, size: 40),
+                AppAvatar(contact: me, size: 40),
               ]
             : [
                 AppAvatar(

@@ -9,6 +9,7 @@ import 'features/discover/discover_page.dart';
 import 'features/discover/moments_page.dart';
 import 'features/home/home_shell.dart';
 import 'features/mine/mine_page.dart';
+import 'features/mine/profile_page.dart';
 
 /// 声明式路由：
 /// - StatefulShellRoute 管理底部 4 个 Tab（各自独立的导航栈）
@@ -63,6 +64,10 @@ final routerProvider = Provider<GoRouter>(
       GoRoute(
         path: '/moments',
         builder: (context, state) => const MomentsPage(),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfilePage(),
       ),
       GoRoute(
         path: '/call/:id',

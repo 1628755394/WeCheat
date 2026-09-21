@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
+import '../../models/contact.dart';
 import '../../models/moment.dart';
+import '../../providers/user_provider.dart';
 import '../../repositories/mock_data.dart';
 
 /// 朋友圈：封面 + 头像压角 + 信息流（昵称/文字/九宫格图/时间/点赞评论）
-class MomentsPage extends StatelessWidget {
+class MomentsPage extends ConsumerWidget {
   const MomentsPage({super.key});
 
   static const _nameBlue = Color(0xFF576B95);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final moments = MockData.seedMoments();
+    final me = ref.watch(currentUserProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -29,10 +33,14 @@ class MomentsPage extends StatelessWidget {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const _CoverHeader(),
+          _CoverHeader(me: me),
           for (var i = 0; i < moments.length; i++) ...[
             if (i > 0) const Divider(height: 1, indent: 62),
-            _MomentTile(moment: moments[i]),
+            _MomentTile(
+              moment: moments[i],
+              // 我自己发的动态用实时资料（头像/昵称可改）
+              author: moments[i].author.id == 'me' ? me : moments[i].author,
+            ),
           ],
         ],
       ),
@@ -42,7 +50,9 @@ class MomentsPage extends StatelessWidget {
 
 /// 封面图 + 右下角"我"的昵称和头像（压封面下缘）
 class _CoverHeader extends StatelessWidget {
-  const _CoverHeader();
+  final Contact me;
+
+  const _CoverHeader({required this.me});
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +74,7 @@ class _CoverHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    MockData.me.displayName,
+                    me.displayName,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -73,7 +83,7 @@ class _CoverHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const AppAvatar(contact: MockData.me, size: 62),
+                  AppAvatar(contact: me, size: 62),
                 ],
               ),
             ),
@@ -87,8 +97,9 @@ class _CoverHeader extends StatelessWidget {
 
 class _MomentTile extends StatelessWidget {
   final Moment moment;
+  final Contact author;
 
-  const _MomentTile({required this.moment});
+  const _MomentTile({required this.moment, required this.author});
 
   /// 朋友圈相对时间：x分钟前 / x小时前 / 昨天 HH:mm / M月d日
   static String _relativeTime(DateTime time) {
@@ -107,14 +118,14 @@ class _MomentTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppAvatar(contact: moment.author, size: 40),
+          AppAvatar(contact: author, size: 40),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  moment.author.displayName,
+                  author.displayName,
                   style: const TextStyle(
                     color: MomentsPage._nameBlue,
                     fontSize: 15,

@@ -42,6 +42,7 @@ lib/
 - [x] 头像图片：`Contact.avatarAsset` + `AppAvatar` 图片优先/回退字母，素材在 assets/avatars
 - [x] 朋友圈页 `/moments`：封面压角头像、九宫格图、点赞评论区（静态 Mock）
 - [x] 音视频通话 `/call/:id?video=0|1`：聊天页 + 面板进入；AI 会话接通后 Ollama 生成→flutter_tts 播报+字幕，speech_to_text 按住说话；非 AI 响铃后无应答
+- [x] 个人信息页 `/profile`：换头像（相册选图/内置头像网格）、改昵称/地区，`currentUserProvider` 存 Hive 全局生效
 - [ ] 通讯录：A-Z 侧边索引（scrollable_positioned_list）
 - [ ] 发现页/我的页：已完成静态 UI，可继续加二级页面
 - [ ] 聊天页进阶：图片/语音消息、长按菜单（复制/撤回/删除）、聊天设置页

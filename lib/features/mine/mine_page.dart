@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
-import '../../repositories/mock_data.dart';
+import '../../providers/user_provider.dart';
 
 /// 我的页面：个人信息卡片 + 菜单
-class MinePage extends StatelessWidget {
+class MinePage extends ConsumerWidget {
   const MinePage({super.key});
-
-  static const _me = MockData.me;
 
   static const _menus = [
     (Icons.payment, Color(0xFF07C160), '服务', ''),
@@ -21,45 +20,50 @@ class MinePage extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentUserProvider);
+
     return Scaffold(
       backgroundColor: AppColors.searchBg,
       appBar: AppBar(backgroundColor: Colors.white),
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // 个人信息卡片
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-            child: Row(
-              children: [
-                AppAvatar(contact: _me, size: 62),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Devin',
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w600),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        '微信号：wecheat_dev',
-                        style: TextStyle(
-                            fontSize: 14, color: AppColors.textSecondary),
-                      ),
-                    ],
+          // 个人信息卡片：点击进个人信息页
+          InkWell(
+            onTap: () => context.push('/profile'),
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              child: Row(
+                children: [
+                  AppAvatar(contact: me, size: 62),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          me.name,
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '微信号：${me.wechatId}',
+                          style: const TextStyle(
+                              fontSize: 14, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const Icon(Icons.qr_code_2,
-                    size: 20, color: AppColors.textSecondary),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right,
-                    color: AppColors.textSecondary),
-              ],
+                  const Icon(Icons.qr_code_2,
+                      size: 20, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right,
+                      color: AppColors.textSecondary),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 8),
