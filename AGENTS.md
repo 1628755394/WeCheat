@@ -8,7 +8,7 @@
 - Flutter 3.47.2 stable / Dart 3.13.2；pub 源走 `https://storage.flutter-io.cn` 镜像
 - 本机访问 github.com 走代理可能超时，但 `flutter pub` 正常
 - PowerShell 的 Invoke-WebRequest/curl 别名会走代理导致 127.0.0.1 请求失败；测本地服务用 `curl.exe --noproxy "*"`
-- 本机装有 Ollama 0.32.1 + `qwen3:4b` / `gemma4:12b`（AI 助手会话直连 `127.0.0.1:11434/api/chat` 流式接口；显存 8GB，12B 只能部分上 GPU 很慢，日常用 4b）
+- 本机装有 Ollama 0.32.1 + `qwen3:4b`（AI 助手会话直连 `127.0.0.1:11434/api/chat` 流式接口；显存 8GB，12B 级别模型只能部分上 GPU 会很慢）
 
 ## 常用命令
 
