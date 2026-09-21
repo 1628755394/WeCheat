@@ -65,6 +65,16 @@ void main() {
     expect(turns[1].role, 'user');
   });
 
+  test('PC 微信多选复制格式（名字 日期 时间）解析', () {
+    final turns = parseStyleTurns(
+        '星仔  2024-09-20 14:30:25\n卧槽今天又加班\n我  2024-09-20 14:31:02\n辛苦了啊');
+    expect(turns.length, 2);
+    expect(turns[0].role, 'assistant');
+    expect(turns[0].content, '卧槽今天又加班');
+    expect(turns[1].role, 'user');
+    expect(turns[1].content, '辛苦了啊');
+  });
+
   test('空/无法解析的聊天记录返回空', () {
     expect(parseStyleTurns(''), isEmpty);
     expect(parseStyleTurns('没有说话人标记的随便一段文字'), isEmpty);

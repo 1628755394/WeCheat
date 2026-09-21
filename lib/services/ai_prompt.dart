@@ -45,12 +45,13 @@ String buildAiSystemPrompt(
 
 /// 从聊天记录原文解析对话轮次：目标说话人→assistant，其他人→user。
 /// 目标自动取除"我/Me"外发言最多的人（即要模仿的对象）。
-/// 支持两种格式：
-///   名字: 内容        （单行）
-///   名字 时间        （下一行是内容，微信导出格式）
+/// 支持三种格式：
+///   名字: 内容                    （单行）
+///   名字 时间                     （下一行是内容）
+///   名字 日期 时间                （PC 微信多选复制导出格式）
 /// 返回空列表表示无法解析。
 List<({String role, String content})> parseStyleTurns(String chatLog,
-    {int max = 12}) {
+    {int max = 20}) {
   final lines = chatLog
       .split('\n')
       .map((l) => l.trim())
@@ -58,7 +59,11 @@ List<({String role, String content})> parseStyleTurns(String chatLog,
       .toList();
 
   final inline = RegExp(r'^([^\s:：]{1,16})[:：]\s*(.+)$');
-  final head = RegExp(r'^([^\s:：]{1,16})\s+\d{1,2}:\d{2}(:\d{2})?\s*$');
+  // 名字 + [可选日期] + 时间，如 "张三 14:30" / "张三 2024-09-20 14:30:25"
+  final head = RegExp(
+      r'^([^\s:：]{1,16})\s+'
+      r'(?:\d{4}[-/]\d{1,2}[-/]\d{1,2}\s+)?'
+      r'\d{1,2}:\d{2}(:\d{2})?\s*$');
 
   final turns = <({String speaker, String content})>[];
   String? pendingSpeaker;

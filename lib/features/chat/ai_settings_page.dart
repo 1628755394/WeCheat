@@ -134,7 +134,7 @@ class AiSettingsPage extends ConsumerWidget {
                 context,
                 title: '聊天记录样本',
                 initial: profile.chatLog,
-                hint: '支持两种格式：\n1）名字: 内容  如"林晓雨: 晚上吃啥"\n2）名字 时间+换行  如"林晓雨 14:20\n   晚上吃啥"\n只贴目标人物一人的台词也行',
+                hint: 'PC微信：右键消息→多选→勾选→复制，粘贴到这里即可\n也支持"名字: 内容"单行格式\n只贴目标人物一人的台词也行',
                 onSave: notifier.setChatLog,
               ),
             ),
