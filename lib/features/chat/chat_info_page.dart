@@ -19,7 +19,7 @@ class ChatInfoPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conversation = ref
-        .watch(conversationListProvider)
+        .watch(resolvedConversationListProvider)
         .value
         ?.where((c) => c.id == conversationId)
         .firstOrNull;

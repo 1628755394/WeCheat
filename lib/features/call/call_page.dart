@@ -62,7 +62,7 @@ class _CallPageState extends ConsumerState<CallPage> {
   bool get _isAi => _conversation?.contact.isAi ?? false;
 
   Conversation? get _conversation => ref
-      .read(conversationListProvider)
+      .read(resolvedConversationListProvider)
       .value
       ?.where((c) => c.id == widget.conversationId)
       .firstOrNull;
@@ -260,7 +260,7 @@ class _CallPageState extends ConsumerState<CallPage> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(conversationListProvider);
+    ref.watch(resolvedConversationListProvider);
     final contact = _conversation?.contact;
     final name = contact?.displayName ?? '通话';
 

@@ -13,7 +13,7 @@ class ConversationPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final conversations = ref.watch(conversationListProvider);
+    final conversations = ref.watch(resolvedConversationListProvider);
     final unread = ref.watch(totalUnreadProvider);
 
     return Scaffold(

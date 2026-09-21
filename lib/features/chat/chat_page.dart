@@ -123,7 +123,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final conversation = ref
-        .watch(conversationListProvider)
+        .watch(resolvedConversationListProvider)
         .value
         ?.where((c) => c.id == widget.conversationId)
         .firstOrNull;

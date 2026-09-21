@@ -14,13 +14,8 @@ class ConversationList extends AsyncNotifier<List<Conversation>> {
 
   @override
   Future<List<Conversation>> build() async {
-    // 合并联系人覆盖层（自定义头像/备注），覆盖变化时自动重建
-    final overrides = ref.watch(contactOverridesProvider);
     await _repo.init();
-    return [
-      for (final c in _repo.loadAll())
-        c.copyWith(contact: resolveContact(overrides, c.contact)),
-    ];
+    return _repo.loadAll();
   }
 
   Future<void> refresh() async {
@@ -68,6 +63,16 @@ class ConversationList extends AsyncNotifier<List<Conversation>> {
 final conversationListProvider =
     AsyncNotifierProvider<ConversationList, List<Conversation>>(
         ConversationList.new);
+
+/// 展示层：会话列表 + 联系人覆盖层合并（自定义头像/备注），UI 一律读这里
+final resolvedConversationListProvider =
+    Provider<AsyncValue<List<Conversation>>>((ref) {
+  final overrides = ref.watch(contactOverridesProvider);
+  return ref.watch(conversationListProvider).whenData((list) => [
+        for (final c in list)
+          c.copyWith(contact: resolveContact(overrides, c.contact)),
+      ]);
+});
 
 /// 底部 Tab 未读总数（免打扰会话只显示红点不计数？微信仍计入总角标，这里按计数统计）
 final totalUnreadProvider = Provider<int>((ref) {
