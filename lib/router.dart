@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'features/call/call_page.dart';
+import 'features/chat/ai_settings_page.dart';
 import 'features/chat/chat_info_page.dart';
 import 'features/chat/chat_page.dart';
 import 'features/contact/contact_page.dart';
@@ -66,6 +67,11 @@ final routerProvider = Provider<GoRouter>(
         path: '/chat/:id/info',
         builder: (context, state) =>
             ChatInfoPage(conversationId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/chat/:id/ai',
+        builder: (context, state) =>
+            AiSettingsPage(conversationId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/moments',

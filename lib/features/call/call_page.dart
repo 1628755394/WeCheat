@@ -8,8 +8,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../models/contact.dart';
 import '../../models/conversation.dart';
+import '../../providers/ai_profile_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/conversation_provider.dart';
+import '../../services/ai_prompt.dart';
 import '../../services/stt_service.dart';
 import '../../services/tts_service.dart';
 
@@ -86,12 +88,7 @@ class _CallPageState extends ConsumerState<CallPage> {
     setState(() {});
 
     if (_isAi) {
-      _history.add((
-        role: 'system',
-        content:
-            '你正在和用户进行微信${widget.isVideo ? '视频' : '语音'}通话。用简短口语化的中文对话，每次一两句话，不要用列表和 markdown。',
-      ));
-      // 捎带最近聊天记录作上下文
+      // 捎带最近聊天记录作上下文（system prompt 每轮按需组装）
       final msgs = ref
               .read(chatMessagesProvider(widget.conversationId))
               .value
@@ -160,8 +157,14 @@ class _CallPageState extends ConsumerState<CallPage> {
     var pending = '';
     final sentenceEnd = RegExp(r'[。！？!?；;\n]');
     try {
-      await for (final chunk
-          in ref.read(ollamaServiceProvider).chat(_history)) {
+      await for (final chunk in ref.read(ollamaServiceProvider).chat(
+        _history,
+        systemPrompt: buildAiSystemPrompt(
+          ref.read(aiProfileProvider),
+          userText: userContent,
+          inCall: true,
+        ),
+      )) {
         if (_status == _CallStatus.ended) return;
         full += chunk;
         pending += chunk;

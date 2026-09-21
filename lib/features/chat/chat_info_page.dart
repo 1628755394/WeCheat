@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -146,6 +147,24 @@ class ChatInfoPage extends ConsumerWidget {
               ],
             ),
           ),
+          // AI 会话专属：人设/知识库/聊天记录设置
+          if (contact?.isAi ?? false) ...[
+            const SizedBox(height: 8),
+            Material(
+              color: Colors.white,
+              child: ListTile(
+                leading: const Icon(Icons.smart_toy_outlined,
+                    color: AppColors.primary),
+                title: const Text('AI 设置', style: TextStyle(fontSize: 16)),
+                subtitle: const Text('人设、知识库、聊天记录风格',
+                    style: TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary)),
+                trailing: const Icon(Icons.chevron_right,
+                    color: AppColors.textSecondary),
+                onTap: () => context.push('/chat/$conversationId/ai'),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Material(
             color: Colors.white,

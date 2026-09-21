@@ -14,14 +14,16 @@ class OllamaService {
   final _client = http.Client();
 
   /// 流式聊天：传入完整上下文，逐段吐出 AI 生成的文本
-  Stream<String> chat(List<({String role, String content})> history) async* {
+  /// systemPrompt 可覆盖默认提示词（角色卡/知识库由调用方组装）
+  Stream<String> chat(List<({String role, String content})> history,
+      {String? systemPrompt}) async* {
     final request = http.Request('POST', Uri.parse(_endpoint))
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
         'model': model,
         'stream': true,
         'messages': [
-          {'role': 'system', 'content': _systemPrompt},
+          {'role': 'system', 'content': systemPrompt ?? _systemPrompt},
           for (final m in history) {'role': m.role, 'content': m.content},
         ],
       });

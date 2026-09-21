@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/message.dart';
 import '../repositories/message_repository.dart';
+import '../services/ai_prompt.dart';
 import '../services/ollama_service.dart';
+import 'ai_profile_provider.dart';
 import 'conversation_provider.dart';
 
 final messageRepositoryProvider =
@@ -70,11 +72,11 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     state = AsyncData(current.copyWith(messages: messages));
     _syncConversation(userMsg);
 
-    if (_isAiConversation) unawaited(_generateReply(messages));
+    if (_isAiConversation) unawaited(_generateReply(messages, content));
   }
 
   /// 把最近上下文发给 Ollama，流式增量写入 AI 气泡
-  Future<void> _generateReply(List<Message> context) async {
+  Future<void> _generateReply(List<Message> context, String userText) async {
     final aiMsg = Message(
       id: _newId(),
       conversationId: conversationId,
@@ -94,10 +96,17 @@ class ChatMessages extends AsyncNotifier<ChatState> {
         (role: m.isMe ? 'user' : 'assistant', content: m.content),
     ].reversed.take(20).toList().reversed.toList();
 
+    // 人设 + 按当前提问检索知识库 + 聊天记录风格样本
+    final systemPrompt = buildAiSystemPrompt(
+      ref.read(aiProfileProvider),
+      userText: userText,
+    );
+
     var full = '';
     try {
-      await for (final chunk
-          in ref.read(ollamaServiceProvider).chat(history)) {
+      await for (final chunk in ref
+          .read(ollamaServiceProvider)
+          .chat(history, systemPrompt: systemPrompt)) {
         full += chunk;
         _patch(aiMsg.id, full);
       }

@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants.dart';
 
-/// 通用单字段编辑页：标题 + 输入框 + 完成按钮，pop 返回输入值
+/// 通用字段编辑页：标题 + 输入框 + 完成按钮，pop 返回输入值
+/// maxLines > 1 时为多行输入（人设/知识库/聊天记录用）
 class EditFieldPage extends StatefulWidget {
   final String title;
   final String initial;
   final String hint;
+  final int maxLines;
 
   const EditFieldPage({
     super.key,
     required this.title,
     this.initial = '',
     this.hint = '',
+    this.maxLines = 1,
   });
 
   @override
@@ -48,7 +51,8 @@ class _EditFieldPageState extends State<EditFieldPage> {
         child: TextField(
           controller: _controller,
           autofocus: true,
-          maxLength: 24,
+          maxLines: widget.maxLines,
+          maxLength: widget.maxLines > 1 ? 2000 : 24,
           decoration: InputDecoration(
             hintText: widget.hint.isEmpty ? '请输入${widget.title}' : widget.hint,
             filled: true,
