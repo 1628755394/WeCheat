@@ -34,6 +34,18 @@ class ConversationList extends AsyncNotifier<List<Conversation>> {
     state = AsyncData(_repo.loadAll());
   }
 
+  /// 切换置顶 / 免打扰
+  Future<void> setFlag(String conversationId,
+      {bool? pinned, bool? muted}) async {
+    final list = state.value ?? [];
+    final index = list.indexWhere((c) => c.id == conversationId);
+    if (index < 0) return;
+
+    final updated = list[index].copyWith(pinned: pinned, muted: muted);
+    await _repo.save(updated);
+    state = AsyncData(_repo.loadAll());
+  }
+
   /// 进入会话后清零未读数
   Future<void> markRead(String conversationId) async {
     final list = state.value ?? [];

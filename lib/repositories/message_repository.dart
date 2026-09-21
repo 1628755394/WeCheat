@@ -31,4 +31,13 @@ class MessageRepository {
 
   Future<void> save(Message message) =>
       _box!.put(message.id, message.toMap());
+
+  /// 清空某会话的全部消息
+  Future<void> clearConversation(String conversationId) async {
+    final keys = _box!.keys.where((k) {
+      final m = Message.fromMap(_box!.get(k) as Map);
+      return m.conversationId == conversationId;
+    }).toList();
+    await _box!.deleteAll(keys);
+  }
 }

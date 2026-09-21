@@ -147,7 +147,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           generating && isAi ? '对方正在输入…' : (conversation?.contact.displayName ?? '聊天'),
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.more_horiz), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.more_horiz),
+            onPressed: () =>
+                context.push('/chat/${widget.conversationId}/info'),
+          ),
         ],
       ),
       body: Column(

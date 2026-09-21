@@ -1,30 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
+import '../../core/widgets/avatar_picker.dart';
 import '../../providers/user_provider.dart';
 
 /// 个人信息页：换头像、改昵称/地区（持久化到 Hive，全局生效）
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
-
-  /// 内置头像候选（assets/avatars 下全部图片）
-  static const _assetChoices = [
-    'assets/avatars/me.jpg',
-    'assets/avatars/c1.jpg',
-    'assets/avatars/c2.jpg',
-    'assets/avatars/c5.jpg',
-    'assets/avatars/c6.jpg',
-    'assets/avatars/c8.jpg',
-    'assets/avatars/c9.jpg',
-    'assets/avatars/c10.jpg',
-    'assets/avatars/c11.jpg',
-    'assets/avatars/c13.jpg',
-    'assets/avatars/c14.jpg',
-    'assets/avatars/moments_cover.jpg',
-  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -123,74 +107,12 @@ class ProfilePage extends ConsumerWidget {
 
   /// 头像底部弹窗：相册选择 或 内置头像网格
   void _pickAvatar(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Center(child: Text('从相册选择')),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final picked = await ImagePicker()
-                    .pickImage(source: ImageSource.gallery, maxWidth: 512);
-                if (picked == null) return;
-                final bytes = await picked.readAsBytes();
-                await ref
-                    .read(currentUserProvider.notifier)
-                    .setAvatarBytes(bytes);
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              title: const Center(child: Text('选择内置头像')),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _pickBuiltinAvatar(context, ref);
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              title: const Center(
-                  child: Text('取消', style: TextStyle(color: Colors.grey))),
-              onTap: () => Navigator.pop(sheetContext),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _pickBuiltinAvatar(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: GridView.count(
-          crossAxisCount: 4,
-          shrinkWrap: true,
-          padding: const EdgeInsets.all(16),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          children: [
-            for (final asset in _assetChoices)
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  ref
-                      .read(currentUserProvider.notifier)
-                      .setAvatarAsset(asset);
-                },
-                child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(AppDimens.avatarRadius),
-                  child:
-                      Image.asset(asset, fit: BoxFit.cover),
-                ),
-              ),
-          ],
-        ),
-      ),
+    showAvatarPicker(
+      context,
+      onBytes: (bytes) =>
+          ref.read(currentUserProvider.notifier).setAvatarBytes(bytes),
+      onAsset: (asset) =>
+          ref.read(currentUserProvider.notifier).setAvatarAsset(asset),
     );
   }
 
