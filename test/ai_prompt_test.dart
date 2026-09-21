@@ -27,17 +27,47 @@ void main() {
     expect(p, contains('生日是3月15日'));
   });
 
-  test('不相关条目不注入', () {
+  test('知识库条目少时全部注入（保证用户导入内容能被读到）', () {
     const profile = AiProfile(knowledge: ['完全无关的天文知识xyz']);
     final p = buildAiSystemPrompt(profile, userText: '晚上吃什么');
-    expect(p, isNot(contains('【参考知识】')));
+    expect(p, contains('【参考知识】'));
+    expect(p, contains('天文知识'));
   });
 
-  test('聊天记录样本注入', () {
-    const profile = AiProfile(chatLog: '林晓雨: 哈哈好的呀');
+  test('聊天记录无法解析时作为风格参考注入', () {
+    const profile = AiProfile(chatLog: '哈哈好的呀');
     final p = buildAiSystemPrompt(profile);
     expect(p, contains('【风格参考】'));
     expect(p, contains('哈哈好的呀'));
+  });
+
+  test('聊天记录已解析成轮次时不重复注入', () {
+    const profile = AiProfile(chatLog: '林晓雨: 哈哈好的呀');
+    final p = buildAiSystemPrompt(profile, styleInHistory: true);
+    expect(p, isNot(contains('【风格参考】')));
+  });
+
+  test('单行格式聊天记录解析成 few-shot 轮次', () {
+    final turns = parseStyleTurns('我: 晚上吃啥\n林晓雨: 吃火锅呀\n我: 行\n林晓雨: 那就楼下那家');
+    expect(turns.length, 4);
+    // 林晓雨发言最多 → assistant；我 → user
+    expect(turns[0].role, 'user');
+    expect(turns[1].role, 'assistant');
+    expect(turns[1].content, '吃火锅呀');
+    expect(turns[3].role, 'assistant');
+  });
+
+  test('微信导出格式（名字 时间 换行 内容）解析', () {
+    final turns = parseStyleTurns('林晓雨 14:20\n晚上一起吃饭吗\n我 14:21\n好啊去哪');
+    expect(turns.length, 2);
+    expect(turns[0].role, 'assistant');
+    expect(turns[0].content, '晚上一起吃饭吗');
+    expect(turns[1].role, 'user');
+  });
+
+  test('空/无法解析的聊天记录返回空', () {
+    expect(parseStyleTurns(''), isEmpty);
+    expect(parseStyleTurns('没有说话人标记的随便一段文字'), isEmpty);
   });
 
   test('通话模式附加口语化约束', () {

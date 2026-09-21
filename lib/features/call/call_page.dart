@@ -42,6 +42,7 @@ class _CallPageState extends ConsumerState<CallPage> {
   final _inputController = TextEditingController();
   final _captions = <_Caption>[];
   final _history = <({String role, String content})>[];
+  bool _hasStyleTurns = false;
 
   _CallStatus _status = _CallStatus.ringing;
   Timer? _timer;
@@ -90,6 +91,12 @@ class _CallPageState extends ConsumerState<CallPage> {
     setState(() {});
 
     if (_isAi) {
+      // 聊天记录样本解析成 few-shot 轮次放历史最前，通话中模仿其语气
+      final profile = ref.read(aiProfileProvider);
+      final styleTurns = parseStyleTurns(profile.chatLog);
+      _hasStyleTurns = styleTurns.isNotEmpty;
+      _history.addAll(styleTurns);
+
       // 捎带最近聊天记录作上下文（system prompt 每轮按需组装）
       final msgs = ref
               .read(chatMessagesProvider(widget.conversationId))
@@ -166,6 +173,7 @@ class _CallPageState extends ConsumerState<CallPage> {
           profile,
           userText: userContent,
           inCall: true,
+          styleInHistory: _hasStyleTurns,
         ),
         model: profile.model,
       )) {

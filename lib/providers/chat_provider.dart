@@ -94,15 +94,26 @@ class ChatMessages extends AsyncNotifier<ChatState> {
       generating: true,
     ));
 
+    // 聊天记录样本解析成 few-shot 轮次插在最前，模型按真实对话风格模仿
+    final profile = ref.read(aiProfileProvider);
+    final styleTurns = parseStyleTurns(profile.chatLog);
+
     final history = [
+      ...styleTurns,
       for (final m in context.where((m) => m.type == MessageType.text))
         (role: m.isMe ? 'user' : 'assistant', content: m.content),
-    ].reversed.take(20).toList().reversed.toList();
+    ].reversed
+        .take(20 + styleTurns.length)
+        .toList()
+        .reversed
+        .toList();
 
-    // 人设 + 按当前提问检索知识库 + 聊天记录风格样本 + 模型选择
-    final profile = ref.read(aiProfileProvider);
-    final systemPrompt =
-        buildAiSystemPrompt(profile, userText: userText);
+    // 人设 + 知识库 + （未解析成轮次时）风格样本 + 模型选择
+    final systemPrompt = buildAiSystemPrompt(
+      profile,
+      userText: userText,
+      styleInHistory: styleTurns.isNotEmpty,
+    );
     assert(() {
       debugPrint('[AI] model=${profile.model} systemPrompt:\n$systemPrompt');
       return true;
