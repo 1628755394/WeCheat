@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
 import '../../providers/ai_profile_provider.dart';
+import '../../providers/chat_provider.dart';
+import '../../services/ollama_service.dart';
 import '../common/edit_field_page.dart';
 
 /// AI 设置页：角色人设 / 知识库 / 聊天记录样本（风格模仿）
@@ -21,6 +23,31 @@ class AiSettingsPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('AI 设置')),
       body: ListView(
         children: [
+          const _SectionHeader('模型'),
+          Material(
+            color: Colors.white,
+            child: ListTile(
+              leading:
+                  const Icon(Icons.memory, color: AppColors.primary),
+              title: const Text('本地模型', style: TextStyle(fontSize: 16)),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    profile.model.isEmpty
+                        ? '默认 ${OllamaService.defaultModel}'
+                        : profile.model,
+                    style: const TextStyle(
+                        fontSize: 14, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right,
+                      color: AppColors.textSecondary),
+                ],
+              ),
+              onTap: () => _pickModel(context, ref, profile.model),
+            ),
+          ),
           const _SectionHeader('角色卡'),
           Material(
             color: Colors.white,
@@ -120,6 +147,51 @@ class AiSettingsPage extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 模型选择：从本机 Ollama 拉已安装模型列表
+  void _pickModel(BuildContext context, WidgetRef ref, String current) {
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: FutureBuilder<List<String>>(
+          future: ref.read(ollamaServiceProvider).listModels(),
+          builder: (context, snapshot) {
+            final models = snapshot.data ?? [];
+            if (snapshot.hasError || models.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: Text('无法获取模型列表，请确认 Ollama 正在运行',
+                      style:
+                          TextStyle(color: AppColors.textSecondary)),
+                ),
+              );
+            }
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final m in models)
+                  ListTile(
+                    title: Text(m),
+                    trailing: (current.isEmpty &&
+                                m == OllamaService.defaultModel) ||
+                            current == m
+                        ? const Icon(Icons.check, color: AppColors.primary)
+                        : null,
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      ref
+                          .read(aiProfileProvider.notifier)
+                          .setModel(m);
+                    },
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

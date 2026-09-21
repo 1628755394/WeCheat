@@ -38,6 +38,8 @@ class AiProfileNotifier extends Notifier<AiProfile> {
 
   Future<void> setChatLog(String v) => _save(state.copyWith(chatLog: v));
 
+  Future<void> setModel(String v) => _save(state.copyWith(model: v));
+
   Future<void> addKnowledge(String entry) =>
       _save(state.copyWith(knowledge: [...state.knowledge, entry]));
 

@@ -44,7 +44,7 @@ lib/
 - [x] 音视频通话 `/call/:id?video=0|1`：聊天页 + 面板进入；AI 会话接通后 Ollama 生成→flutter_tts 播报+字幕，speech_to_text 按住说话；非 AI 响铃后无应答
 - [x] 个人信息页 `/profile`：换头像（相册选图/内置头像网格）、改昵称/地区，`currentUserProvider` 存 Hive 全局生效
 - [x] 聊天信息页 `/chat/:id/info`：点头像换任意联系人头像（contactOverridesProvider 存 Hive），置顶/免打扰开关，清空聊天记录
-- [x] AI 设置页 `/chat/:id/ai`（AI 会话专属）：人设/知识库/聊天记录风格样本，`ai_profile_provider` 存 Hive，`ai_prompt.dart` 组装 system prompt（bigram 检索知识条目），聊天+通话共用
+- [x] AI 设置页 `/chat/:id/ai`（AI 会话专属）：人设/知识库/聊天记录风格样本/模型切换（/api/tags 拉本机模型），`ai_profile_provider` 存 Hive，`ai_prompt.dart` 组装 system prompt（bigram 检索知识条目），聊天+通话共用
 - [ ] 通讯录：A-Z 侧边索引（scrollable_positioned_list）
 - [ ] 发现页/我的页：已完成静态 UI，可继续加二级页面
 - [ ] 聊天页进阶：图片/语音消息、长按菜单（复制/撤回/删除）、聊天设置页

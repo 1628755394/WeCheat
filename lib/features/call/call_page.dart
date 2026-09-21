@@ -159,13 +159,15 @@ class _CallPageState extends ConsumerState<CallPage> {
     var pending = '';
     final sentenceEnd = RegExp(r'[。！？!?；;\n]');
     try {
+      final profile = ref.read(aiProfileProvider);
       await for (final chunk in ref.read(ollamaServiceProvider).chat(
         _history,
         systemPrompt: buildAiSystemPrompt(
-          ref.read(aiProfileProvider),
+          profile,
           userText: userContent,
           inCall: true,
         ),
+        model: profile.model,
       )) {
         if (_status == _CallStatus.ended) return;
         full += chunk;

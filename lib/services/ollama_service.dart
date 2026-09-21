@@ -6,21 +6,35 @@ import 'package:http/http.dart' as http;
 /// 本地 Ollama 服务：直连 127.0.0.1:11434，无后端中转
 class OllamaService {
   static const _endpoint = 'http://127.0.0.1:11434/api/chat';
-  static const model = 'qwen2.5:7b';
+  static const _tagsEndpoint = 'http://127.0.0.1:11434/api/tags';
+  static const defaultModel = 'qwen2.5:7b';
 
   static const _systemPrompt =
       '你是微信里的 AI 助手，用简洁的中文回答用户的问题。';
 
   final _client = http.Client();
 
+  /// 列出本机已安装的模型名
+  Future<List<String>> listModels() async {
+    final response =
+        await _client.get(Uri.parse(_tagsEndpoint)).timeout(
+            const Duration(seconds: 10));
+    if (response.statusCode != 200) return const [];
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return [
+      for (final m in (json['models'] as List? ?? []))
+        (m as Map)['name'] as String,
+    ];
+  }
+
   /// 流式聊天：传入完整上下文，逐段吐出 AI 生成的文本
-  /// systemPrompt 可覆盖默认提示词（角色卡/知识库由调用方组装）
+  /// systemPrompt/model 可覆盖默认值（角色卡/知识库/模型由调用方指定）
   Stream<String> chat(List<({String role, String content})> history,
-      {String? systemPrompt}) async* {
+      {String? systemPrompt, String? model}) async* {
     final request = http.Request('POST', Uri.parse(_endpoint))
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
-        'model': model,
+        'model': (model == null || model.isEmpty) ? defaultModel : model,
         'stream': true,
         'messages': [
           {'role': 'system', 'content': systemPrompt ?? _systemPrompt},

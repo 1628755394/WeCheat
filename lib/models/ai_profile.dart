@@ -10,16 +10,21 @@ class AiProfile {
   /// 聊天记录原文样本：AI 会模仿其中人物的语气
   final String chatLog;
 
+  /// 本地 Ollama 模型名，空 = 默认
+  final String model;
+
   const AiProfile({
     this.persona = '',
     this.knowledge = const [],
     this.chatLog = '',
+    this.model = '',
   });
 
   Map<String, dynamic> toMap() => {
         'persona': persona,
         'knowledge': knowledge,
         'chatLog': chatLog,
+        'model': model,
       };
 
   factory AiProfile.fromMap(Map map) => AiProfile(
@@ -27,16 +32,19 @@ class AiProfile {
         knowledge:
             (map['knowledge'] as List?)?.cast<String>() ?? const [],
         chatLog: (map['chatLog'] as String?) ?? '',
+        model: (map['model'] as String?) ?? '',
       );
 
   AiProfile copyWith({
     String? persona,
     List<String>? knowledge,
     String? chatLog,
+    String? model,
   }) =>
       AiProfile(
         persona: persona ?? this.persona,
         knowledge: knowledge ?? this.knowledge,
         chatLog: chatLog ?? this.chatLog,
+        model: model ?? this.model,
       );
 }

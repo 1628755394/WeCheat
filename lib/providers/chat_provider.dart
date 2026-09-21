@@ -99,21 +99,22 @@ class ChatMessages extends AsyncNotifier<ChatState> {
         (role: m.isMe ? 'user' : 'assistant', content: m.content),
     ].reversed.take(20).toList().reversed.toList();
 
-    // 人设 + 按当前提问检索知识库 + 聊天记录风格样本
-    final systemPrompt = buildAiSystemPrompt(
-      ref.read(aiProfileProvider),
-      userText: userText,
-    );
+    // 人设 + 按当前提问检索知识库 + 聊天记录风格样本 + 模型选择
+    final profile = ref.read(aiProfileProvider);
+    final systemPrompt =
+        buildAiSystemPrompt(profile, userText: userText);
     assert(() {
-      debugPrint('[AI] systemPrompt:\n$systemPrompt');
+      debugPrint('[AI] model=${profile.model} systemPrompt:\n$systemPrompt');
       return true;
     }());
 
     var full = '';
     try {
-      await for (final chunk in ref
-          .read(ollamaServiceProvider)
-          .chat(history, systemPrompt: systemPrompt)) {
+      await for (final chunk in ref.read(ollamaServiceProvider).chat(
+        history,
+        systemPrompt: systemPrompt,
+        model: profile.model,
+      )) {
         full += chunk;
         _patch(aiMsg.id, full);
       }
