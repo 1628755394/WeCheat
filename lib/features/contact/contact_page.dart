@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../models/contact.dart';
+import '../../providers/contact_override_provider.dart';
 import '../../repositories/mock_data.dart';
 
 /// 通讯录页：顶部功能入口 + 联系人列表
 /// TODO(模块四): A-Z 字母索引栏 + 按拼音分组排序（scrollable_positioned_list）
-class ContactPage extends StatelessWidget {
+class ContactPage extends ConsumerWidget {
   const ContactPage({super.key});
 
   static const _entries = [
@@ -18,8 +20,11 @@ class ContactPage extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final contacts = MockData.contacts;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final overrides = ref.watch(contactOverridesProvider);
+    final contacts = [
+      for (final c in MockData.contacts) resolveContact(overrides, c),
+    ];
 
     return Scaffold(
       appBar: AppBar(

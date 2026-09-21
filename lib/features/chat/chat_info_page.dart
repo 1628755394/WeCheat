@@ -6,6 +6,7 @@ import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/avatar_picker.dart';
 import '../../models/contact.dart';
 import '../../providers/chat_provider.dart';
+import '../common/edit_field_page.dart';
 import '../../providers/contact_override_provider.dart';
 import '../../providers/conversation_provider.dart';
 
@@ -115,6 +116,26 @@ class ChatInfoPage extends ConsumerWidget {
             color: Colors.white,
             child: Column(
               children: [
+                if (contact != null)
+                  ListTile(
+                    title: const Text('设置备注和标签',
+                        style: TextStyle(fontSize: 16)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          contact.remark ?? '',
+                          style: const TextStyle(
+                              fontSize: 15, color: AppColors.textSecondary),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.chevron_right,
+                            color: AppColors.textSecondary),
+                      ],
+                    ),
+                    onTap: () => _editRemark(context, ref, contact),
+                  ),
+                const Divider(indent: 16, height: 1),
                 ListTile(
                   title: const Text('查找聊天记录',
                       style: TextStyle(fontSize: 16)),
@@ -139,6 +160,25 @@ class ChatInfoPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// 设置备注：空内容 = 清除备注恢复原名
+  Future<void> _editRemark(
+      BuildContext context, WidgetRef ref, Contact contact) async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => EditFieldPage(
+          title: '备注',
+          initial: contact.remark ?? '',
+          hint: '输入备注名，留空恢复原名',
+        ),
+      ),
+    );
+    if (result != null) {
+      await ref
+          .read(contactOverridesProvider.notifier)
+          .setRemark(contact, result);
+    }
   }
 
   void _changeAvatar(BuildContext context, WidgetRef ref, Contact contact) {

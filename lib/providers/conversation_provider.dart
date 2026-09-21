@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/conversation.dart';
 import '../repositories/conversation_repository.dart';
+import 'contact_override_provider.dart';
 
 final conversationRepositoryProvider =
     Provider<ConversationRepository>((ref) => ConversationRepository());
@@ -13,8 +14,13 @@ class ConversationList extends AsyncNotifier<List<Conversation>> {
 
   @override
   Future<List<Conversation>> build() async {
+    // 合并联系人覆盖层（自定义头像/备注），覆盖变化时自动重建
+    final overrides = ref.watch(contactOverridesProvider);
     await _repo.init();
-    return _repo.loadAll();
+    return [
+      for (final c in _repo.loadAll())
+        c.copyWith(contact: resolveContact(overrides, c.contact)),
+    ];
   }
 
   Future<void> refresh() async {

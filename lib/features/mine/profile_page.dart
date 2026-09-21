@@ -5,6 +5,7 @@ import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/avatar_picker.dart';
 import '../../providers/user_provider.dart';
+import '../common/edit_field_page.dart';
 
 /// 个人信息页：换头像、改昵称/地区（持久化到 Hive，全局生效）
 class ProfilePage extends ConsumerWidget {
@@ -121,7 +122,7 @@ class ProfilePage extends ConsumerWidget {
       String initial, Future<void> Function(String) onSave) async {
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-          builder: (_) => _EditFieldPage(title: title, initial: initial)),
+          builder: (_) => EditFieldPage(title: title, initial: initial)),
     );
     if (result != null && result.trim().isNotEmpty) {
       await onSave(result.trim());
@@ -131,63 +132,6 @@ class ProfilePage extends ConsumerWidget {
   void _todo(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('功能开发中'), duration: Duration(seconds: 1)),
-    );
-  }
-}
-
-/// 通用单字段编辑页
-class _EditFieldPage extends StatefulWidget {
-  final String title;
-  final String initial;
-
-  const _EditFieldPage({required this.title, required this.initial});
-
-  @override
-  State<_EditFieldPage> createState() => _EditFieldPageState();
-}
-
-class _EditFieldPageState extends State<_EditFieldPage> {
-  late final _controller = TextEditingController(text: widget.initial);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.of(context).pop(_controller.text.trim()),
-            child: const Text('完成',
-                style: TextStyle(color: AppColors.primary, fontSize: 16)),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: TextField(
-          controller: _controller,
-          autofocus: true,
-          maxLength: 24,
-          decoration: InputDecoration(
-            hintText: '请输入${widget.title}',
-            filled: true,
-            fillColor: AppColors.searchBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
-        ),
-      ),
     );
   }
 }

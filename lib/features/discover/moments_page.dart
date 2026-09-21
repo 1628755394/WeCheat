@@ -5,6 +5,7 @@ import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../models/contact.dart';
 import '../../models/moment.dart';
+import '../../providers/contact_override_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../repositories/mock_data.dart';
 
@@ -18,6 +19,7 @@ class MomentsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final moments = MockData.seedMoments();
     final me = ref.watch(currentUserProvider);
+    final overrides = ref.watch(contactOverridesProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -38,8 +40,10 @@ class MomentsPage extends ConsumerWidget {
             if (i > 0) const Divider(height: 1, indent: 62),
             _MomentTile(
               moment: moments[i],
-              // 我自己发的动态用实时资料（头像/昵称可改）
-              author: moments[i].author.id == 'me' ? me : moments[i].author,
+              // 我自己发的动态用实时资料；其他联系人合并自定义覆盖层
+              author: moments[i].author.id == 'me'
+                  ? me
+                  : resolveContact(overrides, moments[i].author),
             ),
           ],
         ],
