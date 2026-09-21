@@ -27,7 +27,7 @@ lib/
 ├── models/          # contact / conversation / message（Map 序列化，存 Hive）
 ├── repositories/    # mock_data.dart(Mock种子) conversation_repository.dart message_repository.dart(Hive)
 ├── providers/       # conversation_provider.dart chat_provider.dart(Riverpod 3：family 走构造器传参)
-├── services/        # ollama_service.dart(本地大模型流式调用)
+├── services/        # ollama_service.dart(本地大模型流式调用) tts_service.dart stt_service.dart
 ├── features/        # conversation(会话列表) chat contact discover mine home(home_shell)
 ├── router.dart      # go_router：StatefulShellRoute 四 Tab + /chat/:id
 └── main.dart        # Hive.initFlutter + ProviderScope
@@ -41,6 +41,7 @@ lib/
 - [x] AI 助手会话：`conv_ai` 直连本地 Ollama（qwen2.5:7b），NDJSON 流式打字效果 + 「对方正在输入…」
 - [x] 头像图片：`Contact.avatarAsset` + `AppAvatar` 图片优先/回退字母，素材在 assets/avatars
 - [x] 朋友圈页 `/moments`：封面压角头像、九宫格图、点赞评论区（静态 Mock）
+- [x] 音视频通话 `/call/:id?video=0|1`：聊天页 + 面板进入；AI 会话接通后 Ollama 生成→flutter_tts 播报+字幕，speech_to_text 按住说话；非 AI 响铃后无应答
 - [ ] 通讯录：A-Z 侧边索引（scrollable_positioned_list）
 - [ ] 发现页/我的页：已完成静态 UI，可继续加二级页面
 - [ ] 聊天页进阶：图片/语音消息、长按菜单（复制/撤回/删除）、聊天设置页

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
 import '../../core/utils/time_utils.dart';
@@ -67,6 +68,56 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     });
   }
 
+  /// 输入栏 + 号面板：相册/拍摄/语音通话/视频通话等
+  void _showAddPanel() {
+    FocusScope.of(context).unfocus();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.navBarBg,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          child: GridView.count(
+            crossAxisCount: 4,
+            shrinkWrap: true,
+            mainAxisSpacing: 20,
+            children: [
+              _PanelItem(icon: Icons.photo, label: '相册', onTap: () => _todo(sheetContext)),
+              _PanelItem(icon: Icons.photo_camera, label: '拍摄', onTap: () => _todo(sheetContext)),
+              _PanelItem(
+                icon: Icons.call,
+                label: '语音通话',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.push('/call/${widget.conversationId}?video=0');
+                },
+              ),
+              _PanelItem(
+                icon: Icons.videocam,
+                label: '视频通话',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.push('/call/${widget.conversationId}?video=1');
+                },
+              ),
+              _PanelItem(icon: Icons.location_on, label: '位置', onTap: () => _todo(sheetContext)),
+              _PanelItem(icon: Icons.card_giftcard, label: '红包', onTap: () => _todo(sheetContext)),
+              _PanelItem(icon: Icons.person_pin, label: '名片', onTap: () => _todo(sheetContext)),
+              _PanelItem(icon: Icons.folder, label: '文件', onTap: () => _todo(sheetContext)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _todo(BuildContext context) {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('功能开发中'), duration: Duration(seconds: 1)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final conversation = ref
@@ -122,6 +173,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             hasText: _hasText,
             onChanged: (v) => setState(() => _hasText = v.trim().isNotEmpty),
             onSend: _send,
+            onAdd: _showAddPanel,
           ),
         ],
       ),
@@ -305,18 +357,57 @@ class _Dot extends StatelessWidget {
   }
 }
 
-/// 底部输入栏：语音/表情/加号占位 + 输入框 + 发送按钮
+/// + 号面板格子
+class _PanelItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _PanelItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 28, color: Colors.black87),
+          ),
+          const SizedBox(height: 6),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+/// 底部输入栏：语音/表情/加号面板 + 输入框 + 发送按钮
 class _InputBar extends StatelessWidget {
   final TextEditingController controller;
   final bool hasText;
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
+  final VoidCallback onAdd;
 
   const _InputBar({
     required this.controller,
     required this.hasText,
     required this.onChanged,
     required this.onSend,
+    required this.onAdd,
   });
 
   @override
@@ -388,7 +479,7 @@ class _InputBar extends StatelessWidget {
             else
               IconButton(
                 icon: const Icon(Icons.add_circle_outline, size: 26),
-                onPressed: () {},
+                onPressed: onAdd,
               ),
           ],
         ),
