@@ -10,12 +10,16 @@ class AiProfileNotifier extends Notifier<AiProfile> {
   static const _key = 'conv_ai';
 
   Box? _box;
+  Future<void>? _loading;
 
   @override
   AiProfile build() {
-    _load();
+    _loading ??= _load();
     return const AiProfile();
   }
+
+  /// 确保 Hive 数据已载入（发送消息/通话前调用，避免读到空资料）
+  Future<void> ensureLoaded() => _loading ??= _load();
 
   Future<void> _load() async {
     _box = await Hive.openBox(_boxName);
@@ -24,8 +28,9 @@ class AiProfileNotifier extends Notifier<AiProfile> {
   }
 
   Future<void> _save(AiProfile profile) async {
+    // 先等初始加载完成，否则 _load 的 state 赋值可能覆盖刚保存的值
+    await ensureLoaded();
     state = profile;
-    _box ??= await Hive.openBox(_boxName);
     await _box!.put(_key, profile.toMap());
   }
 

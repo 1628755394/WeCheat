@@ -11,12 +11,15 @@ class ContactOverrides extends Notifier<Map<String, Contact>> {
   static const _boxName = 'contact_overrides';
 
   Box? _box;
+  Future<void>? _loading;
 
   @override
   Map<String, Contact> build() {
-    _load();
+    _loading ??= _load();
     return const {};
   }
+
+  Future<void> ensureLoaded() => _loading ??= _load();
 
   Future<void> _load() async {
     _box = await Hive.openBox(_boxName);
@@ -28,7 +31,8 @@ class ContactOverrides extends Notifier<Map<String, Contact>> {
 
   /// 基于已有覆盖（否则 base）做字段更新，避免改备注时丢掉已设的头像
   Future<void> _update(Contact base, Contact Function(Contact) update) async {
-    _box ??= await Hive.openBox(_boxName);
+    // 先等初始加载完成，否则 _load 的 state 赋值可能覆盖刚保存的值
+    await ensureLoaded();
     final updated = update(state[base.id] ?? base);
     await _box!.put(updated.id, updated.toMap());
     state = {...state, updated.id: updated};

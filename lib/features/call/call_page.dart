@@ -83,6 +83,8 @@ class _CallPageState extends ConsumerState<CallPage> {
     }
     await _tts.init();
     _sttReady = await _stt.init();
+    // 预载 AI 资料，保证通话第一轮就带人设/知识库
+    await ref.read(aiProfileProvider.notifier).ensureLoaded();
     if (_isAi && widget.isVideo) unawaited(_initCamera());
     if (!mounted) return;
     setState(() {});

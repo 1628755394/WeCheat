@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/message.dart';
@@ -40,6 +41,8 @@ class ChatMessages extends AsyncNotifier<ChatState> {
   @override
   Future<ChatState> build() async {
     await _repo.init();
+    // 预载 AI 资料，保证第一条消息就能带上人设/知识库
+    await ref.read(aiProfileProvider.notifier).ensureLoaded();
     return ChatState(messages: _repo.loadByConversation(conversationId));
   }
 
@@ -101,6 +104,10 @@ class ChatMessages extends AsyncNotifier<ChatState> {
       ref.read(aiProfileProvider),
       userText: userText,
     );
+    assert(() {
+      debugPrint('[AI] systemPrompt:\n$systemPrompt');
+      return true;
+    }());
 
     var full = '';
     try {

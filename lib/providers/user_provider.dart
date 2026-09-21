@@ -11,12 +11,15 @@ class CurrentUser extends Notifier<Contact> {
   static const _boxName = 'profile';
 
   Box? _box;
+  Future<void>? _loading;
 
   @override
   Contact build() {
-    _load();
+    _loading ??= _load();
     return MockData.me;
   }
+
+  Future<void> ensureLoaded() => _loading ??= _load();
 
   Future<void> _load() async {
     _box = await Hive.openBox(_boxName);
@@ -25,8 +28,9 @@ class CurrentUser extends Notifier<Contact> {
   }
 
   Future<void> _save(Contact me) async {
+    // 先等初始加载完成，否则 _load 的 state 赋值可能覆盖刚保存的值
+    await ensureLoaded();
     state = me;
-    _box ??= await Hive.openBox(_boxName);
     await _box!.put('me', me.toMap());
   }
 
