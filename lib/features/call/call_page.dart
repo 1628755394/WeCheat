@@ -37,6 +37,7 @@ class _Caption {
 class _CallPageState extends ConsumerState<CallPage> {
   final _tts = TtsService();
   final _stt = SttService();
+  final _inputController = TextEditingController();
   final _captions = <_Caption>[];
   final _history = <({String role, String content})>[];
 
@@ -52,6 +53,10 @@ class _CallPageState extends ConsumerState<CallPage> {
   bool _muted = false;
   bool _speakerOn = true;
   bool _cameraOn = true;
+
+  /// 豆包式输出切换：true=AI 语音播报，false=只看文字字幕
+  bool _voiceOn = true;
+  bool _showInput = false;
 
   CameraController? _camera;
   bool get _isAi => _conversation?.contact.isAi ?? false;
@@ -167,14 +172,16 @@ class _CallPageState extends ConsumerState<CallPage> {
         while (match != null) {
           final sentence = pending.substring(0, match.end);
           pending = pending.substring(match.end);
-          unawaited(_tts.speak(sentence));
+          if (_voiceOn) unawaited(_tts.speak(sentence));
           match = sentenceEnd.firstMatch(pending);
         }
       }
     } catch (_) {
       caption.text = '（连接失败，请确认 Ollama 正在运行）';
     }
-    if (pending.trim().isNotEmpty) unawaited(_tts.speak(pending));
+    if (pending.trim().isNotEmpty && _voiceOn) {
+      unawaited(_tts.speak(pending));
+    }
     _history.add((role: 'assistant', content: full));
     if (mounted) setState(() => _aiSpeaking = false);
   }
@@ -215,6 +222,21 @@ class _CallPageState extends ConsumerState<CallPage> {
     setState(() => _captions.add(_Caption('ai', text)));
   }
 
+  /// 切换语音播报 / 纯文字模式
+  void _toggleVoice() {
+    setState(() => _voiceOn = !_voiceOn);
+    if (!_voiceOn) unawaited(_tts.stop());
+  }
+
+  /// 文字输入发送（键盘模式 / STT 兜底）
+  void _sendTyped() {
+    final text = _inputController.text.trim();
+    if (text.isEmpty) return;
+    _inputController.clear();
+    setState(() => _captions.add(_Caption('me', text)));
+    unawaited(_aiTurn(text));
+  }
+
   void _end([String reason = '']) {
     _endReason = reason;
     setState(() => _status = _CallStatus.ended);
@@ -229,6 +251,7 @@ class _CallPageState extends ConsumerState<CallPage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _inputController.dispose();
     _tts.dispose();
     _stt.cancel();
     _camera?.dispose();
@@ -398,28 +421,8 @@ class _CallPageState extends ConsumerState<CallPage> {
 
     return Column(
       children: [
-        // 按住说话（AI 会话且非静音）
-        if (_isAi)
-          GestureDetector(
-            onLongPressStart: (_) => unawaited(_startListening()),
-            onLongPressEnd: (_) => unawaited(_stopListening()),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 60),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: _listening ? Colors.white : Colors.white24,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _listening ? '松开 发送' : '按住 说话',
-                style: TextStyle(
-                  color: _listening ? Colors.black87 : Colors.white,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-          ),
+        // AI 会话：按住说话条 / 文字输入条（键盘图标切换）
+        if (_isAi) _inputArea(),
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -444,9 +447,91 @@ class _CallPageState extends ConsumerState<CallPage> {
               active: !_muted,
               onTap: () => setState(() => _muted = !_muted),
             ),
+            if (_isAi)
+              _controlButton(
+                icon: _voiceOn
+                    ? Icons.subtitles_outlined
+                    : Icons.record_voice_over_outlined,
+                label: _voiceOn ? '转文字' : '转语音',
+                active: _voiceOn,
+                onTap: _toggleVoice,
+              ),
           ],
         ),
       ],
+    );
+  }
+
+  /// 输入区：按住说话（默认）或文字输入（豆包式切换）
+  Widget _inputArea() {
+    if (_showInput) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: TextField(
+                  controller: _inputController,
+                  autofocus: false,
+                  onSubmitted: (_) => _sendTyped(),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    hintText: '输入文字…',
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.send, color: Colors.white),
+              onPressed: _sendTyped,
+            ),
+            IconButton(
+              icon: const Icon(Icons.mic, color: Colors.white70),
+              onPressed: () => setState(() => _showInput = false),
+            ),
+          ],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onLongPressStart: (_) => unawaited(_startListening()),
+              onLongPressEnd: (_) => unawaited(_stopListening()),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _listening ? Colors.white : Colors.white24,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _listening ? '松开 发送' : '按住 说话',
+                  style: TextStyle(
+                    color: _listening ? Colors.black87 : Colors.white,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard, color: Colors.white70),
+            onPressed: () => setState(() => _showInput = true),
+          ),
+        ],
+      ),
     );
   }
 
