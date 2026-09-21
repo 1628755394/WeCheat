@@ -16,7 +16,10 @@
 flutter pub get     # 安装依赖
 flutter analyze     # 静态分析（要求 0 issue）
 flutter test        # 单元测试
-flutter run -d chrome --web-port=7357   # Web 调试必须固定端口！端口变=浏览器 origin 变=IndexedDB(Hive) 换库，重启后数据"丢失"
+flutter run -d chrome --web-port=7357 --web-browser-flag="--user-data-dir=$PWD\.dart_tool\chrome-profile"
+# 两个参数缺一不可：--web-port 固定 origin（IndexedDB 按域名:端口隔离）；
+# --user-data-dir 用真实 Chrome 配置目录替代临时目录，否则仅在 Chrome 正常退出时才把
+# IndexedDB 拷贝到 .dart_tool/chrome-device 缓存，Ctrl+C/强杀会丢数据
 ```
 
 ## 目录结构
