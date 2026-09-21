@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 class OllamaService {
   static const _endpoint = 'http://127.0.0.1:11434/api/chat';
   static const _tagsEndpoint = 'http://127.0.0.1:11434/api/tags';
-  static const defaultModel = 'gemma4:12b';
+  static const defaultModel = 'qwen3:4b';
 
   static const _systemPrompt =
       '你是微信里的 AI 助手，用简洁的中文回答用户的问题。';
@@ -36,6 +36,7 @@ class OllamaService {
       ..body = jsonEncode({
         'model': (model == null || model.isEmpty) ? defaultModel : model,
         'stream': true,
+        'think': false,
         'messages': [
           {'role': 'system', 'content': systemPrompt ?? _systemPrompt},
           for (final m in history) {'role': m.role, 'content': m.content},

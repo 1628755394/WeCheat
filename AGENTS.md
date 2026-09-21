@@ -8,7 +8,7 @@
 - Flutter 3.47.2 stable / Dart 3.13.2；pub 源走 `https://storage.flutter-io.cn` 镜像
 - 本机访问 github.com 走代理可能超时，但 `flutter pub` 正常
 - PowerShell 的 Invoke-WebRequest/curl 别名会走代理导致 127.0.0.1 请求失败；测本地服务用 `curl.exe --noproxy "*"`
-- 本机装有 Ollama 0.32.1 + `gemma4:12b`（AI 助手会话直连 `127.0.0.1:11434/api/chat` 流式接口）
+- 本机装有 Ollama 0.32.1 + `qwen3:4b` / `gemma4:12b`（AI 助手会话直连 `127.0.0.1:11434/api/chat` 流式接口；显存 8GB，12B 只能部分上 GPU 很慢，日常用 4b）
 
 ## 常用命令
 
@@ -38,7 +38,7 @@ lib/
 - [x] 骨架：底部 4 Tab + go_router
 - [x] 微信页：会话列表（下拉刷新/未读角标/置顶/免打扰/点击已读/Hive 持久化）
 - [x] 聊天页：消息气泡、5 分钟时间分组、输入框（Enter 发送/Shift+Enter 换行）、消息 Hive 持久化
-- [x] AI 助手会话：`conv_ai` 直连本地 Ollama（gemma4:12b），NDJSON 流式打字效果 + 「对方正在输入…」
+- [x] AI 助手会话：`conv_ai` 直连本地 Ollama（默认 qwen3:4b），NDJSON 流式打字效果 + 「对方正在输入…」
 - [x] 头像图片：`Contact.avatarAsset` + `AppAvatar` 图片优先/回退字母，素材在 assets/avatars
 - [x] 朋友圈页 `/moments`：封面压角头像、九宫格图、点赞评论区（静态 Mock）
 - [x] 音视频通话 `/call/:id?video=0|1`：聊天页 + 面板进入；AI 会话接通后 Ollama 生成→flutter_tts 播报+字幕，speech_to_text 按住说话；非 AI 响铃后无应答
