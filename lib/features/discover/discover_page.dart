@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
 
@@ -8,29 +9,29 @@ class DiscoverPage extends StatelessWidget {
 
   static const _groups = [
     [
-      (Icons.filter_vintage, Color(0xFF3D8BFD), '朋友圈'),
+      (Icons.filter_vintage, Color(0xFF3D8BFD), '朋友圈', '/moments'),
     ],
     [
-      (Icons.play_circle_outline, Color(0xFFFA9D3B), '视频号'),
-      (Icons.live_tv, Color(0xFFFA5151), '直播'),
+      (Icons.play_circle_outline, Color(0xFFFA9D3B), '视频号', ''),
+      (Icons.live_tv, Color(0xFFFA5151), '直播', ''),
     ],
     [
-      (Icons.qr_code_scanner, Color(0xFF3D8BFD), '扫一扫'),
-      (Icons.vibration, Color(0xFF3D8BFD), '摇一摇'),
+      (Icons.qr_code_scanner, Color(0xFF3D8BFD), '扫一扫', ''),
+      (Icons.vibration, Color(0xFF3D8BFD), '摇一摇', ''),
     ],
     [
-      (Icons.visibility_outlined, Color(0xFFFA9D3B), '看一看'),
-      (Icons.search, Color(0xFFFA5151), '搜一搜'),
+      (Icons.visibility_outlined, Color(0xFFFA9D3B), '看一看', ''),
+      (Icons.search, Color(0xFFFA5151), '搜一搜', ''),
     ],
     [
-      (Icons.near_me, Color(0xFF3D8BFD), '附近'),
+      (Icons.near_me, Color(0xFF3D8BFD), '附近', ''),
     ],
     [
-      (Icons.shopping_bag_outlined, Color(0xFFFA9D3B), '购物'),
-      (Icons.sports_esports_outlined, Color(0xFF8C6BAE), '游戏'),
+      (Icons.shopping_bag_outlined, Color(0xFFFA9D3B), '购物', ''),
+      (Icons.sports_esports_outlined, Color(0xFF8C6BAE), '游戏', ''),
     ],
     [
-      (Icons.apps, Color(0xFF8C6BAE), '小程序'),
+      (Icons.apps, Color(0xFF8C6BAE), '小程序', ''),
     ],
   ];
 
@@ -54,7 +55,10 @@ class DiscoverPage extends StatelessWidget {
                 for (var i = 0; i < group.length; i++) ...[
                   if (i > 0) const Divider(indent: 56),
                   _MenuRow(
-                      icon: group[i].$1, color: group[i].$2, label: group[i].$3),
+                      icon: group[i].$1,
+                      color: group[i].$2,
+                      label: group[i].$3,
+                      route: group[i].$4),
                 ],
               ],
             ),
@@ -69,8 +73,14 @@ class _MenuRow extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String label;
+  final String route;
 
-  const _MenuRow({required this.icon, required this.color, required this.label});
+  const _MenuRow({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.route,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +89,7 @@ class _MenuRow extends StatelessWidget {
       title: Text(label, style: const TextStyle(fontSize: 16)),
       trailing:
           const Icon(Icons.chevron_right, color: AppColors.textSecondary),
-      onTap: () {},
+      onTap: route.isEmpty ? null : () => context.push(route),
     );
   }
 }

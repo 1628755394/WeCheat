@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -11,12 +12,12 @@ class MinePage extends StatelessWidget {
   static const _me = MockData.me;
 
   static const _menus = [
-    (Icons.payment, Color(0xFF07C160), '服务'),
-    (Icons.star_outline, Color(0xFFFA9D3B), '收藏'),
-    (Icons.photo_library_outlined, Color(0xFF3D8BFD), '朋友圈'),
-    (Icons.credit_card, Color(0xFF3D8BFD), '卡包'),
-    (Icons.emoji_emotions_outlined, Color(0xFFFA9D3B), '表情'),
-    (Icons.settings_outlined, Color(0xFF3D8BFD), '设置'),
+    (Icons.payment, Color(0xFF07C160), '服务', ''),
+    (Icons.star_outline, Color(0xFFFA9D3B), '收藏', ''),
+    (Icons.photo_library_outlined, Color(0xFF3D8BFD), '朋友圈', '/moments'),
+    (Icons.credit_card, Color(0xFF3D8BFD), '卡包', ''),
+    (Icons.emoji_emotions_outlined, Color(0xFFFA9D3B), '表情', ''),
+    (Icons.settings_outlined, Color(0xFF3D8BFD), '设置', ''),
   ];
 
   @override
@@ -74,7 +75,7 @@ class MinePage extends StatelessWidget {
 }
 
 class _MenuSection extends StatelessWidget {
-  final List<(IconData, Color, String)> menus;
+  final List<(IconData, Color, String, String)> menus;
 
   const _MenuSection({required this.menus});
 
@@ -91,7 +92,9 @@ class _MenuSection extends StatelessWidget {
               title: Text(menus[i].$3, style: const TextStyle(fontSize: 16)),
               trailing: const Icon(Icons.chevron_right,
                   color: AppColors.textSecondary),
-              onTap: () {},
+              onTap: menus[i].$4.isEmpty
+                  ? null
+                  : () => context.push(menus[i].$4),
             ),
           ],
         ],

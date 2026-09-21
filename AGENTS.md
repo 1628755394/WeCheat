@@ -39,6 +39,8 @@ lib/
 - [x] 微信页：会话列表（下拉刷新/未读角标/置顶/免打扰/点击已读/Hive 持久化）
 - [x] 聊天页：消息气泡、5 分钟时间分组、输入框（Enter 发送/Shift+Enter 换行）、消息 Hive 持久化
 - [x] AI 助手会话：`conv_ai` 直连本地 Ollama（qwen2.5:7b），NDJSON 流式打字效果 + 「对方正在输入…」
+- [x] 头像图片：`Contact.avatarAsset` + `AppAvatar` 图片优先/回退字母，素材在 assets/avatars
+- [x] 朋友圈页 `/moments`：封面压角头像、九宫格图、点赞评论区（静态 Mock）
 - [ ] 通讯录：A-Z 侧边索引（scrollable_positioned_list）
 - [ ] 发现页/我的页：已完成静态 UI，可继续加二级页面
 - [ ] 聊天页进阶：图片/语音消息、长按菜单（复制/撤回/删除）、聊天设置页

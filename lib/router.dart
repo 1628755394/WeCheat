@@ -5,6 +5,7 @@ import 'features/chat/chat_page.dart';
 import 'features/contact/contact_page.dart';
 import 'features/conversation/conversation_page.dart';
 import 'features/discover/discover_page.dart';
+import 'features/discover/moments_page.dart';
 import 'features/home/home_shell.dart';
 import 'features/mine/mine_page.dart';
 
@@ -57,6 +58,10 @@ final routerProvider = Provider<GoRouter>(
         path: '/chat/:id',
         builder: (context, state) =>
             ChatPage(conversationId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/moments',
+        builder: (context, state) => const MomentsPage(),
       ),
     ],
   ),

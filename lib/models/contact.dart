@@ -8,6 +8,7 @@ class Contact {
   final String region;
   final bool isGroup;
   final bool isAi;
+  final String? avatarAsset;
 
   const Contact({
     required this.id,
@@ -17,6 +18,7 @@ class Contact {
     this.region = '',
     this.isGroup = false,
     this.isAi = false,
+    this.avatarAsset,
   });
 
   String get displayName => (remark?.isNotEmpty ?? false) ? remark! : name;
@@ -32,6 +34,7 @@ class Contact {
         'region': region,
         'isGroup': isGroup,
         'isAi': isAi,
+        'avatarAsset': avatarAsset,
       };
 
   factory Contact.fromMap(Map<dynamic, dynamic> map) => Contact(
@@ -42,5 +45,6 @@ class Contact {
         region: (map['region'] as String?) ?? '',
         isGroup: (map['isGroup'] as bool?) ?? false,
         isAi: (map['isAi'] as bool?) ?? false,
+        avatarAsset: map['avatarAsset'] as String?,
       );
 }

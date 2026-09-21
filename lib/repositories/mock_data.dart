@@ -1,6 +1,7 @@
 import '../models/contact.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
+import '../models/moment.dart';
 
 /// Mock 数据源：模拟后端返回的通讯录与会话数据
 abstract final class MockData {
@@ -10,6 +11,7 @@ abstract final class MockData {
     name: 'Devin',
     wechatId: 'wecheat_dev',
     region: '上海',
+    avatarAsset: 'assets/avatars/me.jpg',
   );
 
   /// 本地 AI 助手（走 Ollama，不是真人会话）
@@ -22,20 +24,20 @@ abstract final class MockData {
 
   static final contacts = <Contact>[
     aiAssistant,
-    const Contact(id: 'c1', name: '林晓雨', wechatId: 'linxy_2024', region: '上海'),
-    const Contact(id: 'c2', name: '王建国', remark: '王哥', wechatId: 'wjg668', region: '北京'),
+    const Contact(id: 'c1', name: '林晓雨', wechatId: 'linxy_2024', region: '上海', avatarAsset: 'assets/avatars/c1.jpg'),
+    const Contact(id: 'c2', name: '王建国', remark: '王哥', wechatId: 'wjg668', region: '北京', avatarAsset: 'assets/avatars/c2.jpg'),
     const Contact(id: 'c3', name: '文件传输助手', wechatId: 'filehelper'),
     const Contact(id: 'c4', name: '前端技术交流群', isGroup: true),
-    const Contact(id: 'c5', name: '李雷', wechatId: 'lilei_hm', region: '杭州'),
-    const Contact(id: 'c6', name: '韩梅梅', wechatId: 'hanmm', region: '杭州'),
+    const Contact(id: 'c5', name: '李雷', wechatId: 'lilei_hm', region: '杭州', avatarAsset: 'assets/avatars/c5.jpg'),
+    const Contact(id: 'c6', name: '韩梅梅', wechatId: 'hanmm', region: '杭州', avatarAsset: 'assets/avatars/c6.jpg'),
     const Contact(id: 'c7', name: '家庭群', isGroup: true),
-    const Contact(id: 'c8', name: '刘洋', remark: '产品经理-刘洋', wechatId: 'liuyang_pm', region: '深圳'),
-    const Contact(id: 'c9', name: '楼下快递驿站', wechatId: 'kd_yz001'),
-    const Contact(id: 'c10', name: '陈晓', wechatId: 'chenxiao', region: '成都'),
-    const Contact(id: 'c11', name: '赵磊', remark: '大学室友-赵磊', wechatId: 'zhaolei88', region: '武汉'),
+    const Contact(id: 'c8', name: '刘洋', remark: '产品经理-刘洋', wechatId: 'liuyang_pm', region: '深圳', avatarAsset: 'assets/avatars/c8.jpg'),
+    const Contact(id: 'c9', name: '楼下快递驿站', wechatId: 'kd_yz001', avatarAsset: 'assets/avatars/c9.jpg'),
+    const Contact(id: 'c10', name: '陈晓', wechatId: 'chenxiao', region: '成都', avatarAsset: 'assets/avatars/c10.jpg'),
+    const Contact(id: 'c11', name: '赵磊', remark: '大学室友-赵磊', wechatId: 'zhaolei88', region: '武汉', avatarAsset: 'assets/avatars/c11.jpg'),
     const Contact(id: 'c12', name: '羽毛球俱乐部', isGroup: true),
-    const Contact(id: 'c13', name: '周芷若', wechatId: 'zzr_ruo', region: '南京'),
-    const Contact(id: 'c14', name: '吴彦祖', wechatId: 'wyz_real', region: '广州'),
+    const Contact(id: 'c13', name: '周芷若', wechatId: 'zzr_ruo', region: '南京', avatarAsset: 'assets/avatars/c13.jpg'),
+    const Contact(id: 'c14', name: '吴彦祖', wechatId: 'wyz_real', region: '广州', avatarAsset: 'assets/avatars/c14.jpg'),
   ];
 
   static List<Conversation> seedConversations() {
@@ -181,5 +183,50 @@ abstract final class MockData {
             now.subtract(const Duration(hours: 2))),
       ],
     };
+  }
+
+  /// 朋友圈种子数据
+  static List<Moment> seedMoments() {
+    final now = DateTime.now();
+    Contact byId(String id) => contacts.firstWhere((c) => c.id == id);
+
+    return [
+      Moment(
+        author: byId('c1'),
+        text: '周末探店成功，这家湘菜真的绝了，剁椒鱼头必须点！',
+        images: const ['assets/moments/p1.jpg', 'assets/moments/p2.jpg'],
+        createdAt: now.subtract(const Duration(minutes: 40)),
+        likes: const ['王哥', '韩梅梅'],
+        comments: const ['韩梅梅: 求地址！'],
+      ),
+      Moment(
+        author: byId('c6'),
+        text: '今天也是元气满满的一天 ☀️',
+        createdAt: now.subtract(const Duration(hours: 2)),
+      ),
+      Moment(
+        author: byId('c8'),
+        text: '版本终于发了，连续加班两周，周末好好睡一觉',
+        images: const ['assets/moments/p3.jpg'],
+        createdAt: now.subtract(const Duration(hours: 5)),
+        likes: const ['林晓雨', '赵磊', '陈晓'],
+      ),
+      Moment(
+        author: byId('c14'),
+        images: const [
+          'assets/moments/p4.jpg',
+          'assets/moments/p5.jpg',
+          'assets/moments/p6.jpg',
+        ],
+        createdAt: now.subtract(const Duration(days: 1, hours: 3)),
+        comments: const ['周芷若: 拍得不错'],
+      ),
+      Moment(
+        author: me,
+        text: '新项目上线倒计时，加油',
+        createdAt: now.subtract(const Duration(days: 2)),
+        likes: const ['林晓雨'],
+      ),
+    ];
   }
 }

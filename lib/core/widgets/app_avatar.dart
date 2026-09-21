@@ -44,6 +44,24 @@ class AppAvatar extends StatelessWidget {
       );
     }
 
+    // 有头像图直接显示图片，加载失败回退到字母/图标样式
+    if (contact.avatarAsset != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Image.asset(
+          contact.avatarAsset!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _fallback(child),
+        ),
+      );
+    }
+
+    return _fallback(child);
+  }
+
+  Widget _fallback(Widget child) {
     return Container(
       width: size,
       height: size,

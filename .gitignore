@@ -49,3 +49,6 @@ app.*.map.json
 
 # 头像原图素材库（不进包，仅作备份）
 /touxiang/
+
+# 误建的嵌套空仓库（GitHub 初始化残留下的 WeCheat/WeCheat）
+/WeCheat/
