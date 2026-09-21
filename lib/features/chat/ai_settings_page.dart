@@ -16,8 +16,8 @@ class AiSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(aiProfileProvider);
-    final notifier = ref.read(aiProfileProvider.notifier);
+    final profile = ref.watch(aiProfileProvider(conversationId));
+    final notifier = ref.read(aiProfileProvider(conversationId).notifier);
 
     return Scaffold(
       backgroundColor: AppColors.searchBg,
@@ -213,7 +213,7 @@ class AiSettingsPage extends ConsumerWidget {
                     onTap: () {
                       Navigator.pop(sheetContext);
                       ref
-                          .read(aiProfileProvider.notifier)
+                          .read(aiProfileProvider(conversationId).notifier)
                           .setModel(m);
                     },
                   ),

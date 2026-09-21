@@ -27,14 +27,14 @@ class OllamaService {
     ];
   }
 
-  /// 流式聊天：传入完整上下文，逐段吐出 AI 生成的文本
-  /// systemPrompt/model 可覆盖默认值（角色卡/知识库/模型由调用方指定）
-  Stream<String> chat(List<({String role, String content})> history,
-      {String? systemPrompt, String? model}) async* {
+  Future<http.StreamedResponse> _send(
+      String model,
+      List<({String role, String content})> history,
+      String? systemPrompt) {
     final request = http.Request('POST', Uri.parse(_endpoint))
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
-        'model': (model == null || model.isEmpty) ? defaultModel : model,
+        'model': model,
         'stream': true,
         'think': false,
         'messages': [
@@ -42,10 +42,23 @@ class OllamaService {
           for (final m in history) {'role': m.role, 'content': m.content},
         ],
       });
+    return _client.send(request).timeout(const Duration(seconds: 60));
+  }
 
-    final response =
-        await _client.send(request).timeout(const Duration(seconds: 60));
+  /// 流式聊天：传入完整上下文，逐段吐出 AI 生成的文本
+  /// systemPrompt/model 可覆盖默认值（角色卡/知识库/模型由调用方指定）
+  /// 所选模型已被卸载（404）时自动回落 defaultModel，避免历史配置失效
+  Stream<String> chat(List<({String role, String content})> history,
+      {String? systemPrompt, String? model}) async* {
+    var useModel = (model == null || model.isEmpty) ? defaultModel : model;
+    var response = await _send(useModel, history, systemPrompt);
+    if (response.statusCode != 200 && useModel != defaultModel) {
+      await response.stream.drain();
+      useModel = defaultModel;
+      response = await _send(useModel, history, systemPrompt);
+    }
     if (response.statusCode != 200) {
+      await response.stream.drain();
       throw Exception('Ollama 返回 ${response.statusCode}');
     }
 

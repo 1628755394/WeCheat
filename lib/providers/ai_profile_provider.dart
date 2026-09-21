@@ -3,11 +3,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/ai_profile.dart';
 
-/// AI 助手资料（人设/知识库/聊天风格样本），按会话存 Hive
-/// 当前只有 conv_ai，用单例即可
+/// AI 资料（人设/知识库/聊天风格样本/模型），按会话 id 存 Hive
+/// 每个 AI 好友一套独立配置，互不覆盖
 class AiProfileNotifier extends Notifier<AiProfile> {
+  AiProfileNotifier(this.conversationId);
+
+  final String conversationId;
+
   static const _boxName = 'ai_profiles';
-  static const _key = 'conv_ai';
 
   Box? _box;
   Future<void>? _loading;
@@ -23,7 +26,7 @@ class AiProfileNotifier extends Notifier<AiProfile> {
 
   Future<void> _load() async {
     _box = await Hive.openBox(_boxName);
-    final raw = _box!.get(_key);
+    final raw = _box!.get(conversationId);
     if (raw != null) state = AiProfile.fromMap(raw as Map);
   }
 
@@ -31,7 +34,7 @@ class AiProfileNotifier extends Notifier<AiProfile> {
     // 先等初始加载完成，否则 _load 的 state 赋值可能覆盖刚保存的值
     await ensureLoaded();
     state = profile;
-    await _box!.put(_key, profile.toMap());
+    await _box!.put(conversationId, profile.toMap());
   }
 
   Future<void> setPersona(String v) => _save(state.copyWith(persona: v));
@@ -54,5 +57,7 @@ class AiProfileNotifier extends Notifier<AiProfile> {
   }
 }
 
+/// 按 conversationId 区分：每个 AI 会话一份资料
 final aiProfileProvider =
-    NotifierProvider<AiProfileNotifier, AiProfile>(AiProfileNotifier.new);
+    NotifierProvider.family<AiProfileNotifier, AiProfile, String>(
+        AiProfileNotifier.new);

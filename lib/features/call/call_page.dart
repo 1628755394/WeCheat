@@ -84,15 +84,17 @@ class _CallPageState extends ConsumerState<CallPage> {
     }
     await _tts.init();
     _sttReady = await _stt.init();
-    // 预载 AI 资料，保证通话第一轮就带人设/知识库
-    await ref.read(aiProfileProvider.notifier).ensureLoaded();
+    // 预载本会话的 AI 资料，保证通话第一轮就带人设/知识库
+    await ref
+        .read(aiProfileProvider(widget.conversationId).notifier)
+        .ensureLoaded();
     if (_isAi && widget.isVideo) unawaited(_initCamera());
     if (!mounted) return;
     setState(() {});
 
     if (_isAi) {
       // 聊天记录样本解析成 few-shot 轮次放历史最前，通话中模仿其语气
-      final profile = ref.read(aiProfileProvider);
+      final profile = ref.read(aiProfileProvider(widget.conversationId));
       final styleTurns = parseStyleTurns(profile.chatLog);
       _hasStyleTurns = styleTurns.isNotEmpty;
       _history.addAll(styleTurns);
@@ -166,7 +168,7 @@ class _CallPageState extends ConsumerState<CallPage> {
     var pending = '';
     final sentenceEnd = RegExp(r'[。！？!?；;\n]');
     try {
-      final profile = ref.read(aiProfileProvider);
+      final profile = ref.read(aiProfileProvider(widget.conversationId));
       await for (final chunk in ref.read(ollamaServiceProvider).chat(
         _history,
         systemPrompt: buildAiSystemPrompt(

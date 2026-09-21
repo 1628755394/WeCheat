@@ -22,6 +22,13 @@ class ConversationList extends AsyncNotifier<List<Conversation>> {
     state = AsyncData(_repo.loadAll());
   }
 
+  /// 新建会话（添加 AI 好友等），持久化后刷新列表，返回新会话 id
+  Future<String> addConversation(Conversation conversation) async {
+    await _repo.save(conversation);
+    state = AsyncData(_repo.loadAll());
+    return conversation.id;
+  }
+
   /// 收发消息后更新列表里的摘要与时间，并重新排序
   Future<void> updateLastMessage(
       String conversationId, String text, DateTime time) async {

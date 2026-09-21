@@ -41,8 +41,8 @@ class ChatMessages extends AsyncNotifier<ChatState> {
   @override
   Future<ChatState> build() async {
     await _repo.init();
-    // 预载 AI 资料，保证第一条消息就能带上人设/知识库
-    await ref.read(aiProfileProvider.notifier).ensureLoaded();
+    // 预载本会话的 AI 资料，保证第一条消息就能带上人设/知识库
+    await ref.read(aiProfileProvider(conversationId).notifier).ensureLoaded();
     return ChatState(messages: _repo.loadByConversation(conversationId));
   }
 
@@ -95,7 +95,7 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     ));
 
     // 聊天记录样本解析成 few-shot 轮次插在最前，模型按真实对话风格模仿
-    final profile = ref.read(aiProfileProvider);
+    final profile = ref.read(aiProfileProvider(conversationId));
     final styleTurns = parseStyleTurns(profile.chatLog);
 
     final history = [
