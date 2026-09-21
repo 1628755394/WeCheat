@@ -189,7 +189,7 @@ class _CallPageState extends ConsumerState<CallPage> {
   Future<void> _startListening() async {
     if (_muted || _status != _CallStatus.connected) return;
     if (!_sttReady) {
-      _addHint('语音识别不可用（Chrome 语音识别依赖网络服务）');
+      _addHint('语音识别不可用，点右侧键盘图标改用文字输入');
       return;
     }
     if (_aiSpeaking) {
@@ -278,8 +278,19 @@ class _CallPageState extends ConsumerState<CallPage> {
               right: 0,
               child: Center(child: _statusText(name)),
             ),
-            // 字幕区
-            if (_status == _CallStatus.connected) _captionOverlay(),
+            // 字幕 + 底部控制区：字幕动态贴在控制区上方，不重叠
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 24,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_status == _CallStatus.connected) _captionList(),
+                  _controls(),
+                ],
+              ),
+            ),
             // 视频模式：本地小窗
             if (widget.isVideo && _status == _CallStatus.connected && _cameraOn)
               Positioned(
@@ -287,13 +298,6 @@ class _CallPageState extends ConsumerState<CallPage> {
                 right: 14,
                 child: _selfPreview(),
               ),
-            // 底部控制区
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 24,
-              child: _controls(),
-            ),
           ],
         ),
       ),
@@ -377,16 +381,13 @@ class _CallPageState extends ConsumerState<CallPage> {
     );
   }
 
-  Widget _captionOverlay() {
+  Widget _captionList() {
     final shown = _captions.length > 4
         ? _captions.sublist(_captions.length - 4)
         : _captions;
-    return Positioned(
-      left: 20,
-      right: 20,
-      bottom: 150,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           for (final c in shown)
             Padding(
