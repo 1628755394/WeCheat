@@ -20,6 +20,7 @@ class Conversation {
   });
 
   Conversation copyWith({
+    Contact? contact,
     String? lastMessage,
     DateTime? lastMessageTime,
     int? unreadCount,
@@ -28,7 +29,7 @@ class Conversation {
   }) =>
       Conversation(
         id: id,
-        contact: contact,
+        contact: contact ?? this.contact,
         lastMessage: lastMessage ?? this.lastMessage,
         lastMessageTime: lastMessageTime ?? this.lastMessageTime,
         unreadCount: unreadCount ?? this.unreadCount,

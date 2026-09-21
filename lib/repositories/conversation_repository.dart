@@ -20,6 +20,19 @@ class ConversationRepository {
     if (!_box!.containsKey('conv_ai')) {
       await _box!.put('conv_ai', MockData.aiConversation(DateTime.now()).toMap());
     }
+    // 联系人资料以 MockData 为准：同步新增字段（头像图、AI 标记等）
+    for (final key in _box!.keys.toList()) {
+      final conv = Conversation.fromMap(_box!.get(key) as Map);
+      final fresh = MockData.contacts
+          .where((c) => c.id == conv.contact.id)
+          .firstOrNull;
+      if (fresh == null) continue;
+      if (fresh.avatarAsset != conv.contact.avatarAsset ||
+          fresh.isAi != conv.contact.isAi ||
+          fresh.name != conv.contact.name) {
+        await _box!.put(key, conv.copyWith(contact: fresh).toMap());
+      }
+    }
   }
 
   /// 读取全部会话，置顶优先，其余按最新消息时间倒序
