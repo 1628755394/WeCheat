@@ -36,7 +36,9 @@ class OllamaService {
       ..body = jsonEncode({
         'model': model,
         'stream': true,
-        'think': false,
+        // qwen3 的思维链在 think:true 时走独立的 message.thinking 字段，
+        // content 保持干净；think:false 在此版本反而把思维链混进 content
+        'think': true,
         'messages': [
           {'role': 'system', 'content': systemPrompt ?? _systemPrompt},
           for (final m in history) {'role': m.role, 'content': m.content},

@@ -16,7 +16,7 @@
 flutter pub get     # 安装依赖
 flutter analyze     # 静态分析（要求 0 issue）
 flutter test        # 单元测试
-flutter run         # 运行（需连接设备/模拟器）
+flutter run -d chrome --web-port=7357   # Web 调试必须固定端口！端口变=浏览器 origin 变=IndexedDB(Hive) 换库，重启后数据"丢失"
 ```
 
 ## 目录结构
