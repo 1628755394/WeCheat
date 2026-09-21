@@ -145,6 +145,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       appBar: AppBar(
         title: Text(
           generating && isAi ? '对方正在输入…' : (conversation?.contact.displayName ?? '聊天'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         actions: [
           IconButton(
