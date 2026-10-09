@@ -1,5 +1,9 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:typed_data';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+import '../models/contact.dart';
 import '../models/conversation.dart';
 import '../repositories/conversation_repository.dart';
 import 'contact_override_provider.dart';
@@ -29,15 +33,40 @@ class ConversationList extends AsyncNotifier<List<Conversation>> {
     return conversation.id;
   }
 
-  /// 收发消息后更新列表里的摘要与时间，并重新排序
-  Future<void> updateLastMessage(
-      String conversationId, String text, DateTime time) async {
+  /// 更新群成员（群聊加人/减人），并按成员名重新生成默认群名
+  Future<void> updateMembers(
+      String conversationId, List<Contact> members) async {
     final list = state.value ?? [];
     final index = list.indexWhere((c) => c.id == conversationId);
     if (index < 0) return;
 
-    final updated =
-        list[index].copyWith(lastMessage: text, lastMessageTime: time);
+    final conv = list[index];
+    final autoName =
+        members.take(3).map((m) => m.displayName).join('、');
+    final updated = conv.copyWith(
+      members: members,
+      contact: autoName.isEmpty
+          ? conv.contact
+          : conv.contact.copyWith(name: autoName),
+    );
+    await _repo.save(updated);
+    state = AsyncData(_repo.loadAll());
+  }
+
+  /// 收发消息后更新列表里的摘要与时间，并重新排序
+  /// [bumpUnread] 为 true 时未读 +1（AI 消息到达且该会话当前未打开）
+  Future<void> updateLastMessage(
+      String conversationId, String text, DateTime time,
+      {bool bumpUnread = false}) async {
+    final list = state.value ?? [];
+    final index = list.indexWhere((c) => c.id == conversationId);
+    if (index < 0) return;
+
+    final updated = list[index].copyWith(
+      lastMessage: text,
+      lastMessageTime: time,
+      unreadCount: bumpUnread ? list[index].unreadCount + 1 : null,
+    );
     await _repo.save(updated);
     state = AsyncData(_repo.loadAll());
   }
@@ -67,6 +96,76 @@ class ConversationList extends AsyncNotifier<List<Conversation>> {
   }
 }
 
+class ChatBackground {
+  final int? colorValue;
+  final Uint8List? imageBytes;
+
+  const ChatBackground({this.colorValue, this.imageBytes});
+
+  Map<String, dynamic> toMap() => {
+    'colorValue': colorValue,
+    'imageBytes': imageBytes,
+  };
+
+  factory ChatBackground.fromMap(Map map) => ChatBackground(
+    colorValue: map['colorValue'] as int?,
+    imageBytes: _chatBackgroundBytes(map['imageBytes']),
+  );
+
+  static Uint8List? _chatBackgroundBytes(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is Uint8List) return raw;
+    return Uint8List.fromList((raw as List).cast<int>());
+  }
+}
+
+class ChatBackgroundNotifier extends Notifier<ChatBackground> {
+  ChatBackgroundNotifier(this.conversationId);
+
+  final String conversationId;
+  static const _boxName = 'chat_backgrounds';
+
+  Box? _box;
+  Future<void>? _loading;
+
+  @override
+  ChatBackground build() {
+    _loading ??= _load();
+    return const ChatBackground();
+  }
+
+  Future<void> ensureLoaded() => _loading ??= _load();
+
+  Future<void> _load() async {
+    _box = await Hive.openBox(_boxName);
+    final raw = _box!.get(conversationId);
+    if (raw is Map) state = ChatBackground.fromMap(raw);
+  }
+
+  Future<void> _save(ChatBackground background) async {
+    await ensureLoaded();
+    state = background;
+    if (background.colorValue == null && background.imageBytes == null) {
+      await _box!.delete(conversationId);
+    } else {
+      await _box!.put(conversationId, background.toMap());
+    }
+  }
+
+  Future<void> setColor(int value) =>
+      _save(ChatBackground(colorValue: value));
+
+  Future<void> setImage(Uint8List bytes) =>
+      _save(ChatBackground(imageBytes: bytes));
+
+  Future<void> clear() => _save(const ChatBackground());
+}
+
+final chatBackgroundProvider =
+    NotifierProvider.family<ChatBackgroundNotifier, ChatBackground, String>(
+      ChatBackgroundNotifier.new,
+    );
+
 final conversationListProvider =
     AsyncNotifierProvider<ConversationList, List<Conversation>>(
         ConversationList.new);
@@ -77,7 +176,12 @@ final resolvedConversationListProvider =
   final overrides = ref.watch(contactOverridesProvider);
   return ref.watch(conversationListProvider).whenData((list) => [
         for (final c in list)
-          c.copyWith(contact: resolveContact(overrides, c.contact)),
+          c.copyWith(
+            contact: resolveContact(overrides, c.contact),
+            members: [
+              for (final m in c.members) resolveContact(overrides, m),
+            ],
+          ),
       ]);
 });
 

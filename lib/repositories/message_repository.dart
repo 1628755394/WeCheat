@@ -32,6 +32,18 @@ class MessageRepository {
   Future<void> save(Message message) =>
       _box!.put(message.id, message.toMap());
 
+  Future<void> delete(String messageId) => _box!.delete(messageId);
+
+  /// 所有被标记为重点记忆的消息（收藏页用）
+  List<Message> loadMemories() {
+    final list = _box!.values
+        .map((raw) => Message.fromMap(raw as Map))
+        .where((m) => m.isMemory)
+        .toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
   /// 清空某会话的全部消息
   Future<void> clearConversation(String conversationId) async {
     final keys = _box!.keys.where((k) {

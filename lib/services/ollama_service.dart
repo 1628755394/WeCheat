@@ -7,18 +7,17 @@ import 'package:http/http.dart' as http;
 class OllamaService {
   static const _endpoint = 'http://127.0.0.1:11434/api/chat';
   static const _tagsEndpoint = 'http://127.0.0.1:11434/api/tags';
-  static const defaultModel = 'qwen3:4b';
+  static const defaultModel = 'qwen3:8b';
 
-  static const _systemPrompt =
-      '你是微信里的 AI 助手，用简洁的中文回答用户的问题。';
+  static const _systemPrompt = '你是微信里的 AI 助手，用简洁的中文回答用户的问题。';
 
   final _client = http.Client();
 
   /// 列出本机已安装的模型名
   Future<List<String>> listModels() async {
-    final response =
-        await _client.get(Uri.parse(_tagsEndpoint)).timeout(
-            const Duration(seconds: 10));
+    final response = await _client
+        .get(Uri.parse(_tagsEndpoint))
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) return const [];
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     return [
@@ -28,9 +27,10 @@ class OllamaService {
   }
 
   Future<http.StreamedResponse> _send(
-      String model,
-      List<({String role, String content})> history,
-      String? systemPrompt) {
+    String model,
+    List<({String role, String content})> history,
+    String? systemPrompt,
+  ) {
     final request = http.Request('POST', Uri.parse(_endpoint))
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
@@ -39,19 +39,30 @@ class OllamaService {
         // qwen3 的思维链在 think:true 时走独立的 message.thinking 字段，
         // content 保持干净；think:false 在此版本反而把思维链混进 content
         'think': true,
+        // 小模型容易抓人设关键词反复复读：重复惩罚 + 收敛采样压一压
+        'options': {
+          'temperature': 0.7,
+          'top_p': 0.9,
+          'repeat_penalty': 1.15,
+          // 鼓励引入新话题/新措辞，抑制整段复读上一轮
+          'presence_penalty': 0.5,
+        },
         'messages': [
           {'role': 'system', 'content': systemPrompt ?? _systemPrompt},
           for (final m in history) {'role': m.role, 'content': m.content},
         ],
       });
-    return _client.send(request).timeout(const Duration(seconds: 60));
+    return _client.send(request).timeout(const Duration(seconds: 30));
   }
 
   /// 流式聊天：传入完整上下文，逐段吐出 AI 生成的文本
   /// systemPrompt/model 可覆盖默认值（角色卡/知识库/模型由调用方指定）
   /// 所选模型已被卸载（404）时自动回落 defaultModel，避免历史配置失效
-  Stream<String> chat(List<({String role, String content})> history,
-      {String? systemPrompt, String? model}) async* {
+  Stream<String> chat(
+    List<({String role, String content})> history, {
+    String? systemPrompt,
+    String? model,
+  }) async* {
     var useModel = (model == null || model.isEmpty) ? defaultModel : model;
     var response = await _send(useModel, history, systemPrompt);
     if (response.statusCode != 200 && useModel != defaultModel) {

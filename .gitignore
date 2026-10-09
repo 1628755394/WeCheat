@@ -52,3 +52,6 @@ app.*.map.json
 
 # 误建的嵌套空仓库（GitHub 初始化残留下的 WeCheat/WeCheat）
 /WeCheat/
+
+# cc-switch export (contains API keys)
+/web/ccswitch_providers.json

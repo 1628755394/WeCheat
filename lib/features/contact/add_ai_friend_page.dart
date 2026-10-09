@@ -11,6 +11,7 @@ import '../../models/contact.dart';
 import '../../models/conversation.dart';
 import '../../providers/ai_profile_provider.dart';
 import '../../providers/conversation_provider.dart';
+import '../common/model_picker.dart';
 
 /// 添加 AI 好友：填名字/人设/头像，创建一个新的 AI 会话
 /// 每个 AI 好友有独立的人设、知识库、模型和聊天记录
@@ -24,14 +25,17 @@ class AddAiFriendPage extends ConsumerStatefulWidget {
 class _AddAiFriendPageState extends ConsumerState<AddAiFriendPage> {
   final _nameController = TextEditingController();
   final _personaController = TextEditingController();
+  final _greetingController = TextEditingController();
   Uint8List? _avatarBytes;
   String? _avatarAsset;
+  ModelChoice _modelChoice = const ModelChoice();
   bool _saving = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _personaController.dispose();
+    _greetingController.dispose();
     super.dispose();
   }
 
@@ -66,11 +70,21 @@ class _AddAiFriendPageState extends ConsumerState<AddAiFriendPage> {
         );
 
     final persona = _personaController.text.trim();
+    final notifier = ref.read(aiProfileProvider(conversationId).notifier);
     if (persona.isNotEmpty) {
-      await ref
-          .read(aiProfileProvider(conversationId).notifier)
-          .setPersona(persona);
+      await notifier.setPersona(persona);
     }
+    final greeting = _greetingController.text.trim();
+    if (greeting.isNotEmpty) {
+      await notifier.setGreeting(greeting);
+    }
+    await notifier.setModelConfig(
+      provider: _modelChoice.provider,
+      baseUrl: _modelChoice.baseUrl,
+      apiKey: _modelChoice.apiKey,
+      model: _modelChoice.model,
+      providerName: _modelChoice.providerName,
+    );
 
     if (!mounted) return;
     context.pop();
@@ -140,6 +154,43 @@ class _AddAiFriendPageState extends ConsumerState<AddAiFriendPage> {
                 contentPadding: EdgeInsets.all(16),
                 border: InputBorder.none,
               ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Material(
+            color: Colors.white,
+            child: TextField(
+              controller: _greetingController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: '开场白（可选，进会话自动发第一句）',
+                hintText: '例：（倚在门边挑眉看你）哟，稀客',
+                alignLabelWithHint: true,
+                contentPadding: EdgeInsets.all(16),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Material(
+            color: Colors.white,
+            child: ListTile(
+              leading: const Icon(Icons.memory, color: AppColors.primary),
+              title: const Text('模型', style: TextStyle(fontSize: 16)),
+              subtitle: Text(
+                modelChoiceLabel(_modelChoice),
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right,
+                  color: AppColors.textSecondary),
+              onTap: () async {
+                final choice =
+                    await showModelPicker(context, ref, _modelChoice);
+                if (choice != null) {
+                  setState(() => _modelChoice = choice);
+                }
+              },
             ),
           ),
           const Padding(

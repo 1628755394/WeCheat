@@ -3,6 +3,9 @@ import 'contact.dart';
 class Conversation {
   final String id;
   final Contact contact;
+
+  /// 群成员（仅群聊会话使用，含 AI 好友；不含"我"）
+  final List<Contact> members;
   final String lastMessage;
   final DateTime lastMessageTime;
   final int unreadCount;
@@ -12,6 +15,7 @@ class Conversation {
   const Conversation({
     required this.id,
     required this.contact,
+    this.members = const [],
     required this.lastMessage,
     required this.lastMessageTime,
     this.unreadCount = 0,
@@ -21,6 +25,7 @@ class Conversation {
 
   Conversation copyWith({
     Contact? contact,
+    List<Contact>? members,
     String? lastMessage,
     DateTime? lastMessageTime,
     int? unreadCount,
@@ -30,6 +35,7 @@ class Conversation {
       Conversation(
         id: id,
         contact: contact ?? this.contact,
+        members: members ?? this.members,
         lastMessage: lastMessage ?? this.lastMessage,
         lastMessageTime: lastMessageTime ?? this.lastMessageTime,
         unreadCount: unreadCount ?? this.unreadCount,
@@ -40,6 +46,7 @@ class Conversation {
   Map<String, dynamic> toMap() => {
         'id': id,
         'contact': contact.toMap(),
+        'members': [for (final m in members) m.toMap()],
         'lastMessage': lastMessage,
         'lastMessageTime': lastMessageTime.millisecondsSinceEpoch,
         'unreadCount': unreadCount,
@@ -50,6 +57,10 @@ class Conversation {
   factory Conversation.fromMap(Map<dynamic, dynamic> map) => Conversation(
         id: map['id'] as String,
         contact: Contact.fromMap(map['contact'] as Map),
+        members: (map['members'] as List?)
+                ?.map((e) => Contact.fromMap(e as Map))
+                .toList() ??
+            const [],
         lastMessage: (map['lastMessage'] as String?) ?? '',
         lastMessageTime:
             DateTime.fromMillisecondsSinceEpoch(map['lastMessageTime'] as int),

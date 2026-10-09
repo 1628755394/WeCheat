@@ -46,9 +46,19 @@ dependencies:
   flutter_tts: ^4.2.5
   speech_to_text: ^7.5.0
   camera: ^0.12.1
+  fetch_client: ^1.2.1
+  audioplayers: ^6.8.1
+  file_picker: ^13.1.0
+  record: ^7.1.1
+  web_socket_channel: ^3.0.3
+  toml: ^0.18.0
+  live2d_flutter:
+    path: third_party/live2d_flutter
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -72,6 +82,10 @@ flutter:
   assets:
     - assets/avatars/
     - assets/moments/
+    - assets/live2d/mao/
+    - assets/live2d/mao/expressions/
+    - assets/live2d/mao/motions/
+    - assets/live2d/mao/mao_pro.4096/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
