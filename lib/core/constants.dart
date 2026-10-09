@@ -46,4 +46,10 @@ abstract final class AppDimens {
   static const avatarSize = 48.0;
   static const avatarRadius = 5.0;
   static const conversationTileHeight = 72.0;
+
+  /// 宽屏断点：≥760 走 PC 三栏布局（侧栏 + 列表 + 内容区）
+  static const desktopBreakpoint = 760.0;
+
+  /// PC 版中栏（会话列表）宽度
+  static const listPaneWidth = 300.0;
 }

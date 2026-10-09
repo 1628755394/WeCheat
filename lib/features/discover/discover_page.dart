@@ -10,28 +10,15 @@ class DiscoverPage extends StatelessWidget {
   static const _groups = [
     [
       (Icons.filter_vintage, Color(0xFF3D8BFD), '朋友圈', '/moments'),
+      (Icons.style, Color(0xFFFA5151), '角色广场', '/discover/cards'),
     ],
     [
-      (Icons.play_circle_outline, Color(0xFFFA9D3B), '视频号', ''),
-      (Icons.live_tv, Color(0xFFFA5151), '直播', ''),
+      (Icons.qr_code_scanner, Color(0xFF3D8BFD), '扫一扫', '/scan'),
+      (Icons.vibration, Color(0xFF3D8BFD), '摇一摇', '/discover/shake'),
     ],
     [
-      (Icons.qr_code_scanner, Color(0xFF3D8BFD), '扫一扫', ''),
-      (Icons.vibration, Color(0xFF3D8BFD), '摇一摇', ''),
-    ],
-    [
-      (Icons.visibility_outlined, Color(0xFFFA9D3B), '看一看', ''),
-      (Icons.search, Color(0xFFFA5151), '搜一搜', ''),
-    ],
-    [
-      (Icons.near_me, Color(0xFF3D8BFD), '附近', ''),
-    ],
-    [
-      (Icons.shopping_bag_outlined, Color(0xFFFA9D3B), '购物', ''),
-      (Icons.sports_esports_outlined, Color(0xFF8C6BAE), '游戏', ''),
-    ],
-    [
-      (Icons.apps, Color(0xFF8C6BAE), '小程序', ''),
+      (Icons.visibility_outlined, Color(0xFFFA9D3B), '看一看', '/discover/look'),
+      (Icons.search, Color(0xFFFA5151), '搜一搜', '/discover/search'),
     ],
   ];
 
@@ -39,10 +26,7 @@ class DiscoverPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.searchBg,
-      appBar: AppBar(
-        title: const Text('发现'),
-        backgroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('发现'), backgroundColor: Colors.white),
       body: ListView.separated(
         itemCount: _groups.length,
         separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -55,10 +39,11 @@ class DiscoverPage extends StatelessWidget {
                 for (var i = 0; i < group.length; i++) ...[
                   if (i > 0) const Divider(indent: 56),
                   _MenuRow(
-                      icon: group[i].$1,
-                      color: group[i].$2,
-                      label: group[i].$3,
-                      route: group[i].$4),
+                    icon: group[i].$1,
+                    color: group[i].$2,
+                    label: group[i].$3,
+                    route: group[i].$4,
+                  ),
                 ],
               ],
             ),
@@ -87,8 +72,7 @@ class _MenuRow extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: color, size: 26),
       title: Text(label, style: const TextStyle(fontSize: 16)),
-      trailing:
-          const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+      trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
       onTap: route.isEmpty ? null : () => context.push(route),
     );
   }

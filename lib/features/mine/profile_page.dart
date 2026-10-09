@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -58,7 +59,7 @@ class ProfilePage extends ConsumerWidget {
                 ListTile(
                   title: const Text('二维码名片'),
                   trailing: _valueWithChevron('', icon: Icons.qr_code_2),
-                  onTap: () => _todo(context),
+                  onTap: () => context.push('/qr-card'),
                 ),
               ],
             ),
@@ -127,11 +128,5 @@ class ProfilePage extends ConsumerWidget {
     if (result != null && result.trim().isNotEmpty) {
       await onSave(result.trim());
     }
-  }
-
-  void _todo(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('功能开发中'), duration: Duration(seconds: 1)),
-    );
   }
 }

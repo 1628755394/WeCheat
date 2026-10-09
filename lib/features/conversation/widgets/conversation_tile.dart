@@ -10,10 +10,14 @@ class ConversationTile extends StatelessWidget {
   final Conversation conversation;
   final VoidCallback onTap;
 
+  /// 宽屏布局下当前打开的会话：整行绿色高亮（仿微信 PC）
+  final bool selected;
+
   const ConversationTile({
     super.key,
     required this.conversation,
     required this.onTap,
+    this.selected = false,
   });
 
   Widget _avatarWithBadge() {
@@ -36,10 +40,19 @@ class ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 选中行：绿底白字（仿微信 PC）；否则置顶行浅灰底
+    final nameColor = selected ? Colors.white : Colors.black87;
+    final subColor =
+        selected ? Colors.white.withValues(alpha: 0.75) : AppColors.textSecondary;
+
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: conversation.pinned ? AppColors.pinnedBg : Colors.white,
+        color: selected
+            ? AppColors.primary
+            : conversation.pinned
+                ? AppColors.pinnedBg
+                : Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         child: Row(
           children: [
@@ -53,9 +66,9 @@ class ConversationTile extends StatelessWidget {
                     conversation.contact.displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16.5,
-                      color: Colors.black87,
+                      color: nameColor,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -64,9 +77,9 @@ class ConversationTile extends StatelessWidget {
                     conversation.lastMessage,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: AppColors.textSecondary,
+                      color: subColor,
                     ),
                   ),
                 ],
@@ -79,15 +92,14 @@ class ConversationTile extends StatelessWidget {
                 Text(
                   TimeUtils.formatConversationTime(
                       conversation.lastMessageTime),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: subColor,
                   ),
                 ),
                 const SizedBox(height: 6),
                 if (conversation.muted)
-                  const Icon(Icons.volume_off,
-                      size: 16, color: AppColors.textSecondary)
+                  Icon(Icons.volume_off, size: 16, color: subColor)
                 else
                   const SizedBox(height: 16),
               ],

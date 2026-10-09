@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,8 +8,10 @@ import '../../core/widgets/app_avatar.dart';
 import '../../models/contact.dart';
 import '../../models/moment.dart';
 import '../../providers/contact_override_provider.dart';
+import '../../providers/moments_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../repositories/mock_data.dart';
+import 'moments_publish_page.dart';
+
 
 /// 朋友圈：封面 + 头像压角 + 信息流（昵称/文字/九宫格图/时间/点赞评论）
 class MomentsPage extends ConsumerWidget {
@@ -17,7 +21,8 @@ class MomentsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final moments = MockData.seedMoments();
+    final moments =
+        ref.watch(momentsProvider).value ?? const <Moment>[];
     final me = ref.watch(currentUserProvider);
     final overrides = ref.watch(contactOverridesProvider);
 
@@ -29,7 +34,10 @@ class MomentsPage extends ConsumerWidget {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-              icon: const Icon(Icons.photo_camera_outlined), onPressed: () {}),
+            icon: const Icon(Icons.photo_camera_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const MomentsPublishPage())),
+          ),
         ],
       ),
       body: ListView(
@@ -141,9 +149,11 @@ class _MomentTile extends StatelessWidget {
                   Text(moment.text,
                       style: const TextStyle(fontSize: 15, height: 1.4)),
                 ],
-                if (moment.images.isNotEmpty) ...[
+                if (moment.images.isNotEmpty ||
+                    moment.imageBytes.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  _ImageGrid(images: moment.images),
+                  _ImageGrid(
+                      images: moment.images, imageBytes: moment.imageBytes),
                 ],
                 const SizedBox(height: 8),
                 Row(
@@ -178,20 +188,28 @@ class _MomentTile extends StatelessWidget {
   }
 }
 
-/// 九宫格图片：1 张显示大图，多张按 3 列正方形排列
+/// 九宫格图片：1 张显示大图，多张按 3 列正方形排列（asset 路径或内存字节）
 class _ImageGrid extends StatelessWidget {
   final List<String> images;
+  final List<Uint8List> imageBytes;
 
-  const _ImageGrid({required this.images});
+  const _ImageGrid({required this.images, this.imageBytes = const []});
 
   @override
   Widget build(BuildContext context) {
-    if (images.length == 1) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: Image.asset(images.single, width: 180, height: 180,
-            fit: BoxFit.cover),
-      );
+    Widget img(String asset, Uint8List? bytes,
+        {required double w, required double h}) {
+      final child = bytes != null
+          ? Image.memory(bytes, width: w, height: h, fit: BoxFit.cover)
+          : Image.asset(asset, width: w, height: h, fit: BoxFit.cover);
+      return ClipRRect(borderRadius: BorderRadius.circular(4), child: child);
+    }
+
+    final total = images.length + imageBytes.length;
+    if (total == 1) {
+      return img(images.isNotEmpty ? images.single : '',
+          imageBytes.isNotEmpty ? imageBytes.single : null,
+          w: 180, h: 180);
     }
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -200,12 +218,8 @@ class _ImageGrid extends StatelessWidget {
           spacing: 4,
           runSpacing: 4,
           children: [
-            for (final img in images)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Image.asset(img,
-                    width: cell, height: cell, fit: BoxFit.cover),
-              ),
+            for (final a in images) img(a, null, w: cell, h: cell),
+            for (final b in imageBytes) img('', b, w: cell, h: cell),
           ],
         );
       },

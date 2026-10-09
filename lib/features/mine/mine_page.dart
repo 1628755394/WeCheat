@@ -11,12 +11,10 @@ class MinePage extends ConsumerWidget {
   const MinePage({super.key});
 
   static const _menus = [
-    (Icons.payment, Color(0xFF07C160), '服务', ''),
-    (Icons.star_outline, Color(0xFFFA9D3B), '收藏', ''),
+    (Icons.star_outline, Color(0xFFFA9D3B), '收藏', '/favorites'),
     (Icons.photo_library_outlined, Color(0xFF3D8BFD), '朋友圈', '/moments'),
-    (Icons.credit_card, Color(0xFF3D8BFD), '卡包', ''),
-    (Icons.emoji_emotions_outlined, Color(0xFFFA9D3B), '表情', ''),
-    (Icons.settings_outlined, Color(0xFF3D8BFD), '设置', ''),
+    (Icons.emoji_emotions_outlined, Color(0xFFFA9D3B), '表情', '/emoji'),
+    (Icons.settings_outlined, Color(0xFF3D8BFD), '设置', '/settings'),
   ];
 
   @override
@@ -46,22 +44,31 @@ class MinePage extends ConsumerWidget {
                         Text(
                           me.name,
                           style: const TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.w600),
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           '微信号：${me.wechatId}',
                           style: const TextStyle(
-                              fontSize: 14, color: AppColors.textSecondary),
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.qr_code_2,
-                      size: 20, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.qr_code_2,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right,
-                      color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
                 ],
               ),
             ),
@@ -94,8 +101,10 @@ class _MenuSection extends StatelessWidget {
             ListTile(
               leading: Icon(menus[i].$1, color: menus[i].$2, size: 26),
               title: Text(menus[i].$3, style: const TextStyle(fontSize: 16)),
-              trailing: const Icon(Icons.chevron_right,
-                  color: AppColors.textSecondary),
+              trailing: const Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondary,
+              ),
               onTap: menus[i].$4.isEmpty
                   ? null
                   : () => context.push(menus[i].$4),
