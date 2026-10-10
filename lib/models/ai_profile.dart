@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'expression_profile.dart';
+import 'live2d_model_config.dart';
 
 /// AI 资料：人设 / 知识库 / 聊天记录风格样本 / 模型 / 音色 / 重点记忆
 /// 存 Hive，key 为会话 id
@@ -21,6 +22,7 @@ class AiProfile {
   final bool autoVoiceMessages;
 
   final ExpressionProfile expressionProfile;
+  final Live2DModelConfig? live2dModel;
 
   /// 模型名（本地 Ollama 模型或远程接口模型），空 = 默认
   final String model;
@@ -99,6 +101,7 @@ class AiProfile {
     this.customRules = const [],
     this.autoVoiceMessages = false,
     this.expressionProfile = const ExpressionProfile(),
+    this.live2dModel,
     this.model = '',
     this.provider = '',
     this.baseUrl = '',
@@ -167,6 +170,7 @@ class AiProfile {
     'customRules': customRules,
     'autoVoiceMessages': autoVoiceMessages,
     'expressionProfile': expressionProfile.toMap(),
+    'live2dModel': live2dModel?.toMap(),
     'model': model,
     'provider': provider,
     'baseUrl': baseUrl,
@@ -206,6 +210,9 @@ class AiProfile {
     expressionProfile: ExpressionProfile.fromMap(
       map['expressionProfile'] as Map?,
     ),
+    live2dModel: map['live2dModel'] is Map
+        ? Live2DModelConfig.fromMap(map['live2dModel'] as Map)
+        : null,
     model: (map['model'] as String?) ?? '',
     provider: (map['provider'] as String?) ?? '',
     baseUrl: (map['baseUrl'] as String?) ?? '',
@@ -246,6 +253,8 @@ class AiProfile {
     List<String>? customRules,
     bool? autoVoiceMessages,
     ExpressionProfile? expressionProfile,
+    Live2DModelConfig? live2dModel,
+    bool clearLive2dModel = false,
     String? model,
     String? provider,
     String? baseUrl,
@@ -283,6 +292,7 @@ class AiProfile {
     customRules: customRules ?? this.customRules,
     autoVoiceMessages: autoVoiceMessages ?? this.autoVoiceMessages,
     expressionProfile: expressionProfile ?? this.expressionProfile,
+    live2dModel: clearLive2dModel ? null : live2dModel ?? this.live2dModel,
     model: model ?? this.model,
     provider: provider ?? this.provider,
     baseUrl: baseUrl ?? this.baseUrl,

@@ -1,3 +1,5 @@
+import '../../core/widgets/wechat_dialog.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,28 +45,34 @@ class AiFriendPage extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(contact.displayName,
-                    style: const TextStyle(
-                        fontSize: 20, fontWeight: FontWeight.w600)),
+                Text(
+                  contact.displayName,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(width: 6),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('AI',
-                      style:
-                          TextStyle(fontSize: 11, color: AppColors.primary)),
+                  child: const Text(
+                    'AI',
+                    style: TextStyle(fontSize: 11, color: AppColors.primary),
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 28),
           _Card('人设', profile.persona.isEmpty ? '未设置' : profile.persona),
-          _Card('开场白',
-              profile.greeting.isEmpty ? '未设置' : profile.greeting),
+          _Card('开场白', profile.greeting.isEmpty ? '未设置' : profile.greeting),
           const SizedBox(height: 8),
           if (conv != null) ...[
             Material(
@@ -72,32 +80,41 @@ class AiFriendPage extends ConsumerWidget {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.favorite_border,
-                        color: Colors.redAccent),
-                    title: const Text('TA 的心声',
-                        style: TextStyle(fontSize: 16)),
-                    subtitle: const Text('看看 TA 此刻心里在想什么',
-                        style: TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary)),
-                    trailing: const Icon(Icons.chevron_right,
-                        color: AppColors.textSecondary),
+                    leading: const Icon(
+                      Icons.favorite_border,
+                      color: Colors.redAccent,
+                    ),
+                    title: const Text('TA 的心声', style: TextStyle(fontSize: 16)),
+                    subtitle: const Text(
+                      '看看 TA 此刻心里在想什么',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                    ),
                     onTap: () => _showInnerVoice(context, ref, conv.id),
                   ),
                   const Divider(indent: 56, height: 1),
                   ListTile(
-                    leading: const Icon(Icons.book,
-                        color: AppColors.primary),
-                    title: const Text('TA 的日记',
-                        style: TextStyle(fontSize: 16)),
+                    leading: const Icon(Icons.book, color: AppColors.primary),
+                    title: const Text('TA 的日记', style: TextStyle(fontSize: 16)),
                     subtitle: Text(
                       profile.diaries.isEmpty
                           ? '还没有日记，进去让 TA 写一篇'
                           : '共 ${profile.diaries.length} 篇 · 最新：${profile.diaries.last.split('|').first}',
                       style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary),
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                    trailing: const Icon(Icons.chevron_right,
-                        color: AppColors.textSecondary),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                    ),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -110,13 +127,19 @@ class AiFriendPage extends ConsumerWidget {
                   ),
                   const Divider(indent: 56, height: 1),
                   ListTile(
-                leading: const Icon(Icons.tune, color: AppColors.primary),
-                title: const Text('AI 设置', style: TextStyle(fontSize: 16)),
-                subtitle: const Text('模型、知识库、聊天记录风格',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                trailing: const Icon(Icons.chevron_right,
-                    color: AppColors.textSecondary),
+                    leading: const Icon(Icons.tune, color: AppColors.primary),
+                    title: const Text('AI 设置', style: TextStyle(fontSize: 16)),
+                    subtitle: const Text(
+                      '模型、知识库、聊天记录风格',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                    ),
                     onTap: () => context.push('/chat/${conv.id}/ai'),
                   ),
                 ],
@@ -131,7 +154,8 @@ class AiFriendPage extends ConsumerWidget {
                   minimumSize: const Size.fromHeight(44),
                 ),
                 onPressed: () {
-                  final wide = MediaQuery.sizeOf(context).width >=
+                  final wide =
+                      MediaQuery.sizeOf(context).width >=
                       AppDimens.desktopBreakpoint;
                   if (wide) {
                     context.go('/chat/${conv.id}');
@@ -152,9 +176,11 @@ class AiFriendPage extends ConsumerWidget {
   void _showInnerVoice(BuildContext context, WidgetRef ref, String convId) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('${contact.displayName}的心声',
-            style: const TextStyle(fontSize: 17)),
+      builder: (ctx) => WeChatDialog(
+        title: Text(
+          '${contact.displayName}的心声',
+          style: const TextStyle(fontSize: 17),
+        ),
         content: FutureBuilder<String>(
           future: _innerVoice(ref, convId),
           builder: (ctx, snap) {
@@ -191,17 +217,17 @@ class AiFriendPage extends ConsumerWidget {
         if (!m.recalled)
           (role: m.isMe ? 'user' : 'assistant', content: m.content),
     ].reversed.toList();
-    final systemPrompt = '${buildAiSystemPrompt(profile)}'
+    final systemPrompt =
+        '${buildAiSystemPrompt(profile)}'
         '\n\n【任务】以第一人称写一段你此刻的内心独白：关于 TA、你们最近的聊天、'
         '你不敢说出口的真实想法和藏在心里的感受。100 字左右，私密、真实、'
         '符合你的性格，不要括号动作描写，像深夜写给日记的话。';
     var out = '';
     try {
-      await for (final chunk in ref.read(llmServiceProvider).chat(
-        profile,
-        history,
-        systemPrompt: systemPrompt,
-      )) {
+      await for (final chunk
+          in ref
+              .read(llmServiceProvider)
+              .chat(profile, history, systemPrompt: systemPrompt)) {
         out += chunk;
       }
     } catch (_) {}
@@ -228,9 +254,13 @@ class _Card extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(text, style: const TextStyle(fontSize: 15, height: 1.5)),
         ],

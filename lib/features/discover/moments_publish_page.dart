@@ -1,3 +1,5 @@
+import '../../core/widgets/app_page_body.dart';
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -12,8 +14,7 @@ class MomentsPublishPage extends ConsumerStatefulWidget {
   const MomentsPublishPage({super.key});
 
   @override
-  ConsumerState<MomentsPublishPage> createState() =>
-      _MomentsPublishPageState();
+  ConsumerState<MomentsPublishPage> createState() => _MomentsPublishPageState();
 }
 
 class _MomentsPublishPageState extends ConsumerState<MomentsPublishPage> {
@@ -30,7 +31,9 @@ class _MomentsPublishPageState extends ConsumerState<MomentsPublishPage> {
   Future<void> _pick() async {
     try {
       final picked = await ImagePicker().pickMultiImage(
-          maxWidth: 1600, imageQuality: 80);
+        maxWidth: 1600,
+        imageQuality: 80,
+      );
       for (final f in picked) {
         if (_images.length >= 9) break;
         _images.add(await f.readAsBytes());
@@ -50,8 +53,7 @@ class _MomentsPublishPageState extends ConsumerState<MomentsPublishPage> {
 
   @override
   Widget build(BuildContext context) {
-    final canPublish =
-        _controller.text.trim().isNotEmpty || _images.isNotEmpty;
+    final canPublish = _controller.text.trim().isNotEmpty || _images.isNotEmpty;
     return Scaffold(
       appBar: AppBar(
         title: const Text('发朋友圈'),
@@ -63,70 +65,81 @@ class _MomentsPublishPageState extends ConsumerState<MomentsPublishPage> {
                 backgroundColor: AppColors.primary,
                 disabledBackgroundColor: AppColors.divider,
               ),
-              onPressed:
-                  canPublish && !_publishing ? _publish : null,
+              onPressed: canPublish && !_publishing ? _publish : null,
               child: Text(_publishing ? '发表中…' : '发表'),
             ),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: _controller,
-            maxLines: 6,
-            minLines: 4,
-            decoration: const InputDecoration(
-              hintText: '这一刻的想法…',
-              border: InputBorder.none,
+      body: AppPageBody(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextField(
+              controller: _controller,
+              maxLines: 6,
+              minLines: 4,
+              decoration: const InputDecoration(
+                hintText: '这一刻的想法…',
+                border: InputBorder.none,
+              ),
+              onChanged: (_) => setState(() {}),
             ),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (var i = 0; i < _images.length; i++)
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Image.memory(_images[i],
-                          width: 90, height: 90, fit: BoxFit.cover),
-                    ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: GestureDetector(
-                        onTap: () => setState(() => _images.removeAt(i)),
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.black54,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.close,
-                              size: 16, color: Colors.white),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var i = 0; i < _images.length; i++)
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.memory(
+                          _images[i],
+                          width: 90,
+                          height: 90,
+                          fit: BoxFit.cover,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              if (_images.length < 9)
-                GestureDetector(
-                  onTap: _pick,
-                  child: Container(
-                    width: 90,
-                    height: 90,
-                    color: AppColors.searchBg,
-                    child: const Icon(Icons.add,
-                        size: 36, color: AppColors.textSecondary),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _images.removeAt(i)),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-            ],
-          ),
-        ],
+                if (_images.length < 9)
+                  GestureDetector(
+                    onTap: _pick,
+                    child: Container(
+                      width: 90,
+                      height: 90,
+                      color: AppColors.searchBg,
+                      child: const Icon(
+                        Icons.add,
+                        size: 36,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

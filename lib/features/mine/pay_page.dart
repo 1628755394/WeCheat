@@ -1,3 +1,5 @@
+import '../../core/widgets/wechat_dialog.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,19 +40,33 @@ class _PayPageState extends ConsumerState<PayPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(me.displayName,
-                  style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w600)),
+              Text(
+                me.displayName,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text(_receive ? '扫一扫，向我付款' : '付款码',
-                  style: const TextStyle(
-                      fontSize: 13, color: AppColors.textSecondary)),
+              Text(
+                _receive ? '扫一扫，向我付款' : '付款码',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const SizedBox(height: 20),
               if (_receive && _amount > 0)
-                Text('¥${_amount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        fontSize: 28, fontWeight: FontWeight.bold)),
-              FakeQr(seed: '${me.wechatId}-${_receive ? 'in' : 'out'}-$_amount'),
+                Text(
+                  '¥${_amount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              FakeQr(
+                seed: '${me.wechatId}-${_receive ? 'in' : 'out'}-$_amount',
+              ),
               const SizedBox(height: 16),
               if (_receive)
                 TextButton(
@@ -58,9 +74,13 @@ class _PayPageState extends ConsumerState<PayPage> {
                   child: Text(_amount > 0 ? '修改金额' : '设置金额'),
                 )
               else
-                const Text('优先使用零钱支付',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
+                const Text(
+                  '优先使用零钱支付',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
             ],
           ),
         ),
@@ -71,17 +91,23 @@ class _PayPageState extends ConsumerState<PayPage> {
           children: [
             TextButton(
               onPressed: () => setState(() => _receive = false),
-              child: Text('付款码',
-                  style: TextStyle(
-                      color: _receive ? Colors.white70 : Colors.white,
-                      fontSize: 16)),
+              child: Text(
+                '付款码',
+                style: TextStyle(
+                  color: _receive ? Colors.white70 : Colors.white,
+                  fontSize: 16,
+                ),
+              ),
             ),
             TextButton(
               onPressed: () => setState(() => _receive = true),
-              child: Text('收款码',
-                  style: TextStyle(
-                      color: _receive ? Colors.white : Colors.white70,
-                      fontSize: 16)),
+              child: Text(
+                '收款码',
+                style: TextStyle(
+                  color: _receive ? Colors.white : Colors.white70,
+                  fontSize: 16,
+                ),
+              ),
             ),
           ],
         ),
@@ -91,10 +117,11 @@ class _PayPageState extends ConsumerState<PayPage> {
 
   Future<void> _setAmount() async {
     final ctl = TextEditingController(
-        text: _amount > 0 ? _amount.toStringAsFixed(2) : '');
+      text: _amount > 0 ? _amount.toStringAsFixed(2) : '',
+    );
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => WeChatDialog(
         title: const Text('收款金额'),
         content: TextField(
           controller: ctl,
@@ -104,11 +131,13 @@ class _PayPageState extends ConsumerState<PayPage> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('确定')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确定'),
+          ),
         ],
       ),
     );

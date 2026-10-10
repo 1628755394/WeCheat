@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,10 +11,12 @@ import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/output_mode_button.dart';
 import '../../providers/output_mode_provider.dart';
 import '../../models/contact.dart';
+import '../../models/ai_profile.dart';
 import '../../models/conversation.dart';
 import '../../models/message.dart';
 import '../../providers/ai_profile_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/call_performance_provider.dart';
 import '../../providers/conversation_provider.dart';
 import '../../services/ai_prompt.dart';
 import '../../services/stt_service.dart';
@@ -22,8 +25,12 @@ import '../../services/voice_api_client.dart';
 import '../../services/voice_service.dart';
 import '../../services/llm_service.dart';
 import '../../services/virtual_actor.dart';
+import '../../services/repetition_policy.dart';
 import 'actor_avatar.dart';
 import 'live2d_actor.dart';
+import 'call_waiting_view.dart';
+import 'mao_actions.dart';
+import '../../services/call_greeting.dart';
 
 /// 剥掉（动作/神态）描写，只保留说话内容，避免 TTS 把动作念出来
 String stripActions(String text) {
@@ -89,11 +96,44 @@ class _CallPageState extends ConsumerState<CallPage> {
   bool _cameraOn = true;
   bool _ending = false;
   bool _live2dOn = true;
+  bool _modelPending = false;
+  int _idleNudgeIndex = 0;
   VirtualActor? _actor;
   String _observedAiText = '';
 
   bool get _voiceOn => ref.read(outputModeProvider).speaks;
   bool _showInput = false;
+  String? _commandFeedback;
+  int _measuredFrames = 0;
+  int _slowFrames = 0;
+
+  bool get _hasAnimatedModel {
+    final profile = ref.read(aiProfileProvider(widget.conversationId));
+    return _isAi &&
+        widget.isVideo &&
+        _live2dOn &&
+        profile.live2dModel != null &&
+        profile.expressionProfile.animationEnabled &&
+        ref.read(callPerformanceProvider).rendersModel;
+  }
+
+  void _onFrameTimings(List<FrameTiming> timings) {
+    if (!mounted || _status == _CallStatus.ended) return;
+    for (final timing in timings) {
+      _measuredFrames++;
+      if (timing.buildDuration.inMilliseconds > 40 ||
+          timing.rasterDuration.inMilliseconds > 40) {
+        _slowFrames++;
+      }
+    }
+    if (_measuredFrames < 30) return;
+    if (_slowFrames >= 8) {
+      ref.read(callPerformanceProvider.notifier).reduceEffects();
+    }
+    _measuredFrames = 0;
+    _slowFrames = 0;
+  }
+
   bool _showCaptions = false;
 
   CameraController? _camera;
@@ -108,6 +148,7 @@ class _CallPageState extends ConsumerState<CallPage> {
   @override
   void initState() {
     super.initState();
+    SchedulerBinding.instance.addTimingsCallback(_onFrameTimings);
     unawaited(
       _boot().catchError((Object error) {
         debugPrint('Call initialization failed: $error');
@@ -122,16 +163,12 @@ class _CallPageState extends ConsumerState<CallPage> {
 
   Future<void> _bootFast() async {
     await ref.read(outputModeProvider.notifier).ensureLoaded();
+    await ref.read(callPerformanceProvider.notifier).ensureLoaded();
     if (!mounted || _status == _CallStatus.ended) return;
     // 会话列表可能还在加载，先等它就绪，确保能识别 AI 会话
     if (_conversation == null) {
       await ref.read(conversationListProvider.future);
       if (!mounted) return;
-    }
-    if (_isAi && _status == _CallStatus.ringing) {
-      setState(() => _status = _CallStatus.connected);
-      _startTimer();
-      _startIdleTimer();
     }
     // 预载本会话的 AI 资料，保证通话第一轮就带人设/知识库
     await ref
@@ -152,9 +189,6 @@ class _CallPageState extends ConsumerState<CallPage> {
       _history.addAll(styleTurns);
 
       // 捎带最近聊天记录作上下文（system prompt 每轮按需组装）
-      setState(() => _status = _CallStatus.connected);
-      _startTimer();
-      _startIdleTimer();
       final repository = ref.read(messageRepositoryProvider);
       await repository.init();
       if (!mounted || _status == _CallStatus.ended) return;
@@ -171,18 +205,14 @@ class _CallPageState extends ConsumerState<CallPage> {
               (m) => (role: m.isMe ? 'user' : 'assistant', content: m.content),
             ),
       );
-      // 响铃 1.5s 后接通
-      await Future.delayed(Duration.zero);
-      if (!mounted || _status == _CallStatus.ended) return;
-      setState(() => _status = _CallStatus.connected);
-      _startTimer();
-      _startIdleTimer(); // 启动空闲检测
-
-      // 使用人设中的开场白，如果为空则用默认问候
-      final greeting = profile.greeting.isEmpty
-          ? '（电话接通了，先跟用户打个招呼）'
-          : '（电话接通了）${profile.greeting}';
-      unawaited(_aiTurn(greeting));
+      // Start native loading immediately; keep the invitation overlay until ready.
+      if (_hasAnimatedModel) {
+        setState(() => _modelPending = true);
+      } else {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        if (!mounted || _status == _CallStatus.ended) return;
+        _connectCall(profile);
+      }
     } else {
       // 非 AI 会话：响铃 3 秒无应答
       await Future.delayed(const Duration(seconds: 3));
@@ -222,7 +252,19 @@ class _CallPageState extends ConsumerState<CallPage> {
     });
   }
 
-  /// 启动空闲检测：30 秒无用户输入时 AI 主动询问
+  void _connectCall(AiProfile profile) {
+    if (!mounted || _status != _CallStatus.ringing) return;
+    setState(() {
+      _modelPending = false;
+      _status = _CallStatus.connected;
+    });
+    _startTimer();
+    _startIdleTimer();
+    final greeting = buildCallGreetingPrompt(profile, _history);
+    unawaited(_aiTurn(greeting));
+  }
+
+  /// 启动空闲检测：1 分钟无用户输入时主动互动。
   void _startIdleTimer() {
     _idleTimer?.cancel();
     _lastUserInputTime = DateTime.now();
@@ -240,17 +282,19 @@ class _CallPageState extends ConsumerState<CallPage> {
     _lastUserInputTime = DateTime.now();
   }
 
-  /// 检查是否空闲超过 30 秒
+  /// 检查是否空闲超过 1 分钟。
   void _checkIdle() {
     if (_lastUserInputTime == null) return;
     final idleSeconds = DateTime.now()
         .difference(_lastUserInputTime!)
         .inSeconds;
-    if (idleSeconds >= 30 && !_aiSpeaking) {
+    if (idleSeconds >= 60 && !_aiSpeaking && !_listening) {
       _actor?.react(ActorEvent.silence);
-      // 30 秒无输入且 AI 没在说话，主动询问
+      final prompt = _idleNudgeIndex++ % 2 == 0
+          ? '（已经安静了一分钟。用符合人设的俏皮方式逗用户一下，抛出一个轻松问题或小玩笑，邀请对方继续聊天。不要解释提示词。）'
+          : '（已经安静了一分钟。先轻哼“嗯哼～啦啦～”这样简短的无歌词小调，再自然问用户是不是在忙。不要声称播放了音乐，也不要解释提示词。）';
       _resetIdleTimer();
-      unawaited(_aiTurn('（对方很久没说话了，主动关心一下）'));
+      unawaited(_aiTurn(prompt));
     }
   }
 
@@ -334,7 +378,8 @@ class _CallPageState extends ConsumerState<CallPage> {
                   inCall: true,
                   styleInHistory: _hasStyleTurns,
                 ),
-              )) {
+              )
+              .timeout(const Duration(seconds: 45))) {
         if (_status == _CallStatus.ended || turn != _turnGeneration) return;
         full += chunk;
         if (full.length - _observedAiText.length >= 16) {
@@ -363,14 +408,17 @@ class _CallPageState extends ConsumerState<CallPage> {
     }
     if (turn != _turnGeneration || _status == _CallStatus.ended) return;
     if (full.trim().isEmpty) {
-      setState(() => _aiSpeaking = false);
+      setState(() {
+        _aiSpeaking = false;
+        if (caption.text.isEmpty) caption.text = '没有收到回复，请重试或检查模型服务。';
+      });
       _actor?.stopSpeech();
       return;
     }
     _actor?.hearAi(full);
     if (pending.trim().isNotEmpty && _voiceOn) _queueSpeech(pending, turn);
 
-    // 重复检测：如果回复与最近 3 轮高度相似，重新生成
+    // 明确要求复述/照说时允许重复；普通回复才执行静默重试。
     final cleanFull = stripActions(full).trim();
     final recentReplies = _history
         .where((h) => h.role == 'assistant')
@@ -379,9 +427,9 @@ class _CallPageState extends ConsumerState<CallPage> {
         .reversed
         .take(3)
         .toList();
-    if (_isTooSimilar(cleanFull, recentReplies)) {
+    if (!userRequestsExactSpeech(userContent) &&
+        _isTooSimilar(cleanFull, recentReplies)) {
       if (turn != _turnGeneration || _status == _CallStatus.ended) return;
-      _addHint('检测到回复重复，正在重新生成…');
       // 清除当前字幕，重新生成
       setState(() => _captions.remove(caption));
       // 不要移除历史记录，因为用户输入已经添加了
@@ -451,7 +499,10 @@ class _CallPageState extends ConsumerState<CallPage> {
     }
     if (turn != _turnGeneration || _status == _CallStatus.ended) return;
     if (full.trim().isEmpty) {
-      setState(() => _aiSpeaking = false);
+      setState(() {
+        _aiSpeaking = false;
+        if (caption.text.isEmpty) caption.text = '没有收到回复，请重试或检查模型服务。';
+      });
       _actor?.stopSpeech();
       return;
     }
@@ -561,6 +612,7 @@ class _CallPageState extends ConsumerState<CallPage> {
     setState(() => _listening = false);
     final text = _stt.lastResult.isNotEmpty ? _stt.lastResult : _partial;
     if (text.trim().isEmpty) return;
+    _runCommand(text);
     _actor?.hearUser(
       text,
       memories: ref.read(aiProfileProvider(widget.conversationId)).memories,
@@ -611,8 +663,10 @@ class _CallPageState extends ConsumerState<CallPage> {
             onProgress: (position, duration) {
               if (duration <= Duration.zero) return;
               final progress =
-                  (position.inMicroseconds / duration.inMicroseconds)
-                      .clamp(0.0, 1.0);
+                  (position.inMicroseconds / duration.inMicroseconds).clamp(
+                    0.0,
+                    1.0,
+                  );
               // Clone audio exposes playback position, so pauses in the
               // envelope are reflected in the model instead of a fixed loop.
               _actor?.setSpeechEnergy(
@@ -650,6 +704,7 @@ class _CallPageState extends ConsumerState<CallPage> {
   void _sendTyped() {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
+    _runCommand(text);
     _actor?.hearUser(
       text,
       memories: ref.read(aiProfileProvider(widget.conversationId)).memories,
@@ -661,6 +716,68 @@ class _CallPageState extends ConsumerState<CallPage> {
     _scrollCaptionsToEnd();
     unawaited(_aiTurn(text));
   }
+
+  void _runCommand(String text) {
+    if (_status != _CallStatus.connected) return;
+    if (!_hasAnimatedModel) {
+      if (mounted) setState(() => _commandFeedback = '动作不可用');
+      return;
+    }
+    final action = VirtualActor.parseAction(text);
+    final model = ref
+        .read(aiProfileProvider(widget.conversationId))
+        .live2dModel!;
+    final custom = action == ActorAction.stop ? null : model.matchAction(text);
+    if (action == null && custom == null) {
+      if (_commandFeedback != null) setState(() => _commandFeedback = null);
+      return;
+    }
+    String? error;
+    if (custom != null) {
+      if (!(_actor?.requestCustomAction(custom) ?? false)) error = '角色动画未启用';
+    } else if (action == null) {
+      error = '未识别的动作指令';
+    } else if (!supportsModelAction(
+      ref
+          .read(aiProfileProvider(widget.conversationId))
+          .live2dModel!
+          .parameterIds,
+      action,
+    )) {
+      error = '当前模型不支持此动作';
+    } else if (!(_actor?.requestAction(action) ?? false)) {
+      error = '角色动画未启用';
+    }
+    _resetIdleTimer();
+    setState(
+      () => _commandFeedback =
+          error ?? (action == ActorAction.stop ? '动作已停止' : '已接收：$text'),
+    );
+  }
+
+  Widget _commandControls() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _inputArea(),
+            if (_commandFeedback != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  _commandFeedback!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   void _end([String reason = '']) {
     if (!mounted || _ending || _status == _CallStatus.ended) return;
@@ -676,19 +793,11 @@ class _CallPageState extends ConsumerState<CallPage> {
     setState(() => _status = _CallStatus.ended);
     _timer?.cancel();
     _idleTimer?.cancel();
-    final shutdown = _shutdownCall();
-    Future.delayed(const Duration(milliseconds: 850), () async {
+    unawaited(_shutdownCall());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
-        await shutdown.timeout(const Duration(seconds: 2));
-      } catch (_) {}
-      if (!mounted) return;
-      try {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        } else {
-          context.go('/chat/${widget.conversationId}');
-        }
+        context.go('/chat/${widget.conversationId}');
       } catch (error) {
         debugPrint('Call route cleanup failed: $error');
       }
@@ -704,19 +813,24 @@ class _CallPageState extends ConsumerState<CallPage> {
       if (_sttReady) await _stt.cancel();
     } catch (error) {
       debugPrint('Call cleanup failed: $error');
-    } finally {
+    }
+    try {
       await _camera?.dispose();
+    } catch (error) {
+      debugPrint('Call camera cleanup failed: $error');
     }
   }
 
   @override
   void dispose() {
+    SchedulerBinding.instance.removeTimingsCallback(_onFrameTimings);
     _timer?.cancel();
     _idleTimer?.cancel();
     _status = _CallStatus.ended;
     _speechGeneration++;
     _turnGeneration++;
     _actor?.stopSpeech();
+    _actor?.dispose();
     _inputController.dispose();
     _captionScrollController.dispose();
     unawaited(_shutdownCall());
@@ -726,6 +840,15 @@ class _CallPageState extends ConsumerState<CallPage> {
   @override
   Widget build(BuildContext context) {
     ref.watch(resolvedConversationListProvider);
+    final profile = ref.watch(aiProfileProvider(widget.conversationId));
+    final performance = ref.watch(callPerformanceProvider);
+    ref.listen(callPerformanceProvider, (previous, next) {
+      if (_modelPending && !next.rendersModel) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _connectCall(profile),
+        );
+      }
+    });
     ref.watch(outputModeProvider);
     ref.listen(outputModeProvider, (previous, next) {
       if (!next.speaks) {
@@ -747,33 +870,79 @@ class _CallPageState extends ConsumerState<CallPage> {
         actions: const [OutputModeButton(dark: true)],
       ),
       body: SafeArea(
-        child: Stack(
-          children: [
-            // 远端画面 / 主内容
-            Positioned.fill(
-              bottom: _status == _CallStatus.connected ? 190 : 0,
-              child: widget.isVideo
-                  ? _remoteVideo(contact, name)
-                  : _voiceMain(contact, name),
-            ),
-            // 字幕 + 底部控制区：字幕动态贴在控制区上方，不重叠
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 24,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_status == _CallStatus.connected)
-                    _showCaptions ? _captionList() : _latestCaption(),
-                  _controls(),
-                ],
-              ),
-            ),
-            // 视频模式：本地小窗
-            if (widget.isVideo && _status == _CallStatus.connected && _cameraOn)
-              Positioned(top: 60, right: 14, child: _selfPreview()),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxHeight < 420;
+            return Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (widget.isVideo &&
+                          (_modelPending || _status == _CallStatus.connected))
+                        _remoteVideo(contact, name),
+                      if (!widget.isVideo && _status == _CallStatus.connected)
+                        _voiceMain(contact, name),
+                      if (_status == _CallStatus.ringing)
+                        ColoredBox(
+                          color: const Color(0xFF1F1F1F),
+                          child: CallWaitingView(
+                            contact: contact,
+                            name: name,
+                            isVideo: widget.isVideo,
+                            animationsEnabled:
+                                performance.animationsEnabled &&
+                                profile.expressionProfile.animationEnabled,
+                            reducedEffects: performance.reducedEffects,
+                          ),
+                        ),
+                      if (widget.isVideo &&
+                          _status == _CallStatus.connected &&
+                          _cameraOn)
+                        Positioned(
+                          top: 12,
+                          right: 14,
+                          child: Transform.scale(
+                            scale: compact ? 0.65 : 1,
+                            alignment: Alignment.topRight,
+                            child: _selfPreview(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight:
+                        constraints.maxHeight *
+                        (_status == _CallStatus.ringing
+                            ? 0.3
+                            : (constraints.maxHeight < 300
+                                  ? 1
+                                  : (compact ? 0.68 : 0.6))),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 8, bottom: compact ? 8 : 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_status == _CallStatus.connected)
+                          Flexible(
+                            child: _showCaptions
+                                ? _captionList()
+                                : SingleChildScrollView(
+                                    child: _latestCaption(),
+                                  ),
+                          ),
+                        _controls(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -858,10 +1027,36 @@ class _CallPageState extends ConsumerState<CallPage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (contact != null && _actor != null && _status == _CallStatus.connected && _live2dOn)
-            Live2DActor(contact: contact, actor: _actor!, profile: profile)
+          if (contact != null &&
+              _actor != null &&
+              (_status == _CallStatus.connected || _modelPending) &&
+              _live2dOn &&
+              _hasAnimatedModel)
+            Live2DActor(
+              key: ValueKey(profile.live2dModel!.directory),
+              contact: contact,
+              actor: _actor!,
+              profile: profile,
+              onReady: () => _connectCall(profile),
+              onInteraction: _resetIdleTimer,
+              onUnavailable: () {
+                if (!mounted) return;
+                setState(() => _live2dOn = false);
+                if (_modelPending) _connectCall(profile);
+              },
+            )
           else if (contact != null)
-            Center(child: AppAvatar(contact: contact, size: 130)),
+            Center(
+              child: CallAvatar(
+                contact: contact,
+                animationsEnabled:
+                    ref.read(callPerformanceProvider).animationsEnabled &&
+                    profile.expressionProfile.animationEnabled,
+                reducedEffects: ref
+                    .read(callPerformanceProvider)
+                    .reducedEffects,
+              ),
+            ),
           Positioned(
             left: 16,
             right: 16,
@@ -899,14 +1094,14 @@ class _CallPageState extends ConsumerState<CallPage> {
   Widget _captionList() {
     final height = (MediaQuery.sizeOf(context).height * 0.38).clamp(
       140.0,
-      340.0,
+      260.0,
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: Center(
         child: Container(
           width: double.infinity,
-          constraints: BoxConstraints(maxWidth: 600, maxHeight: height),
+          constraints: BoxConstraints(maxWidth: 440, maxHeight: height),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.76),
             borderRadius: BorderRadius.circular(8),
@@ -992,11 +1187,11 @@ class _CallPageState extends ConsumerState<CallPage> {
         switchOutCurve: Curves.easeIn,
         child: Container(
           key: ValueKey<Object>(caption ?? listeningText!),
-          constraints: const BoxConstraints(maxWidth: 560),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1011,11 +1206,11 @@ class _CallPageState extends ConsumerState<CallPage> {
               Flexible(
                 child: Text(
                   visibleText,
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: isAi ? Colors.white : Colors.white70,
-                    fontSize: 15,
+                    fontSize: 14,
                     height: 1.35,
                   ),
                 ),
@@ -1034,131 +1229,167 @@ class _CallPageState extends ConsumerState<CallPage> {
     if (_status == _CallStatus.ended) return const SizedBox.shrink();
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
+        if (_hasAnimatedModel) _commandControls(),
         // AI 会话：按住说话条 / 文字输入条（键盘图标切换）
-        if (_isAi) _inputArea(),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _controlButton(
-              icon: _speakerOn ? Icons.volume_up : Icons.volume_off,
-              label: '免提',
-              active: _speakerOn,
-              onTap: () => setState(() => _speakerOn = !_speakerOn),
+        if (_isAi && !_hasAnimatedModel) _inputArea(),
+        const SizedBox(height: 16),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _controlButton(
+                  icon: _speakerOn ? Icons.volume_up : Icons.volume_off,
+                  label: '免提',
+                  active: _speakerOn,
+                  onTap: () => setState(() => _speakerOn = !_speakerOn),
+                ),
+                if (widget.isVideo)
+                  _controlButton(
+                    icon: _cameraOn ? Icons.videocam : Icons.videocam_off,
+                    label: '摄像头',
+                    active: _cameraOn,
+                    onTap: () => setState(() => _cameraOn = !_cameraOn),
+                  ),
+                _hangupButton(),
+                _controlButton(
+                  icon: _muted ? Icons.mic_off : Icons.mic,
+                  label: '静音',
+                  active: !_muted,
+                  onTap: () {
+                    setState(() => _muted = !_muted);
+                    _actor?.react(_muted ? ActorEvent.mute : ActorEvent.unmute);
+                  },
+                ),
+                _controlButton(
+                  icon: _showCaptions
+                      ? Icons.subtitles
+                      : Icons.subtitles_outlined,
+                  label: '字幕',
+                  active: _showCaptions,
+                  onTap: _toggleCaptions,
+                ),
+              ],
             ),
-            if (widget.isVideo)
-              _controlButton(
-                icon: _cameraOn ? Icons.videocam : Icons.videocam_off,
-                label: '摄像头',
-                active: _cameraOn,
-                onTap: () => setState(() => _cameraOn = !_cameraOn),
-              ),
-            _hangupButton(),
-            _controlButton(
-              icon: _muted ? Icons.mic_off : Icons.mic,
-              label: '静音',
-              active: !_muted,
-              onTap: () {
-                setState(() => _muted = !_muted);
-                _actor?.react(_muted ? ActorEvent.mute : ActorEvent.unmute);
-              },
-            ),
-            _controlButton(
-              icon: _showCaptions ? Icons.subtitles : Icons.subtitles_outlined,
-              label: '字幕',
-              active: _showCaptions,
-              onTap: _toggleCaptions,
-            ),
-          ],
+          ),
         ),
       ],
     );
   }
 
   /// 输入区：按住说话（默认）或文字输入（豆包式切换）
-  Widget _inputArea() {
-    if (_showInput) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: TextField(
-                  controller: _inputController,
-                  autofocus: false,
-                  onSubmitted: (_) => _sendTyped(),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: '输入文字…',
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 10,
+  Widget _inputArea() => Align(
+    alignment: Alignment.center,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 440),
+      child: _inputField(),
+    ),
+  );
+
+  Widget _inputField() => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+    decoration: BoxDecoration(
+      color: const Color(0xFF353535),
+      borderRadius: BorderRadius.circular(28),
+      border: Border.all(color: Colors.white12),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        IconButton(
+          visualDensity: VisualDensity.standard,
+          constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+          tooltip: _showInput ? '切换语音输入' : '切换文字输入',
+          icon: Icon(
+            _showInput ? Icons.mic : Icons.keyboard,
+            color: Colors.white70,
+          ),
+          onPressed: () {
+            FocusScope.of(context).unfocus();
+            setState(() => _showInput = !_showInput);
+          },
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: _showInput
+              ? Container(
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: TextField(
+                    controller: _inputController,
+                    minLines: 1,
+                    maxLines: 3,
+                    style: const TextStyle(fontSize: 14, color: Colors.white),
+                    cursorColor: const Color(0xFF47A8FF),
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _sendTyped(),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      hintText: '聊点什么…',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
+                    ),
+                  ),
+                )
+              : GestureDetector(
+                  onLongPressStart: (_) => unawaited(_startListening()),
+                  onLongPressEnd: (_) => unawaited(_stopListening()),
+                  child: Container(
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _listening ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _listening ? '松开 发送' : '按住 说话',
+                      style: TextStyle(
+                        color: _listening ? Colors.black87 : Colors.white,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.send, color: Colors.white),
-              onPressed: _sendTyped,
-            ),
-            IconButton(
-              icon: const Icon(Icons.mic, color: Colors.white70),
-              onPressed: () => setState(() => _showInput = false),
-            ),
-          ],
         ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onLongPressStart: (_) => unawaited(_startListening()),
-              onLongPressEnd: (_) => unawaited(_stopListening()),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _listening ? Colors.white : Colors.white24,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  _listening ? '松开 发送' : '按住 说话',
-                  style: TextStyle(
-                    color: _listening ? Colors.black87 : Colors.white,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-            ),
-          ),
+        if (_showInput)
           IconButton(
-            icon: const Icon(Icons.keyboard, color: Colors.white70),
-            onPressed: () => setState(() => _showInput = true),
-          ),
-        ],
-      ),
-    );
-  }
+            visualDensity: VisualDensity.standard,
+            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+            tooltip: '发送',
+            icon: const CircleAvatar(
+              radius: 18,
+              backgroundColor: Color(0xFF168BFF),
+              child: Icon(Icons.arrow_upward, color: Colors.white, size: 22),
+            ),
+            onPressed: _sendTyped,
+          )
+        else
+          const SizedBox(width: 48),
+      ],
+    ),
+  );
 
   Widget _hangupButton() {
+    final size = MediaQuery.sizeOf(context).width < 360 ? 52.0 : 64.0;
     return GestureDetector(
       onTap: _ending ? null : _end,
       child: Column(
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: size,
+            height: size,
             decoration: const BoxDecoration(
               color: Color(0xFFFA5151),
               shape: BoxShape.circle,
@@ -1181,13 +1412,14 @@ class _CallPageState extends ConsumerState<CallPage> {
     required bool active,
     required VoidCallback onTap,
   }) {
+    final size = MediaQuery.sizeOf(context).width < 360 ? 48.0 : 60.0;
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: size,
+            height: size,
             decoration: BoxDecoration(
               color: active ? Colors.white24 : Colors.white10,
               shape: BoxShape.circle,

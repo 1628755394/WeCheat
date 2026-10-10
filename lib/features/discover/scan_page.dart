@@ -1,3 +1,5 @@
+import '../../core/widgets/wechat_dialog.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -48,7 +50,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final contact = chars[Random().nextInt(chars.length)].contact;
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => WeChatDialog(
         title: const Text('识别结果'),
         content: Text('扫到一张名片：${contact.displayName}（AI）'),
         actions: [
@@ -119,8 +121,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
               ),
             ),
             const SizedBox(height: 24),
-            const Text('将二维码放入框内，即可自动扫描',
-                style: TextStyle(color: Colors.white70, fontSize: 14)),
+            const Text(
+              '将二维码放入框内，即可自动扫描',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
           ],
         ),
       ),

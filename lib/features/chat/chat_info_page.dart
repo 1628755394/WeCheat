@@ -1,3 +1,6 @@
+import '../../core/widgets/app_page_body.dart';
+import '../../core/widgets/wechat_dialog.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,182 +56,214 @@ class ChatInfoPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.searchBg,
       appBar: AppBar(title: const Text('聊天信息')),
-      body: ListView(
-        children: [
-          // 成员区：单聊 = 对方头像（点击换头像）；群聊 = 全部成员宫格（点击进其 AI 设置）
-          Material(
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Wrap(
-                spacing: 20,
-                runSpacing: 12,
-                children: [
-                  if (isGroup)
-                    for (final m in members)
-                      _MemberCell(
-                        contact: m,
-                        onTap: () => _openMemberSettings(context, ref, m),
-                      )
-                  else if (contact != null)
-                    _MemberCell(
-                      contact: contact,
-                      onTap: () => _changeAvatar(context, ref, contact),
-                    ),
-                  // 添加成员入口（仿微信 + 号格）
-                  _MemberCell(
-                    contact: null,
-                    onTap: () => _addMember(context, contact, conversation),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 16, top: 6, bottom: 12),
-            child: Text(
-              isGroup ? '点成员头像可改其 AI 设置，+ 号添加成员' : '点击头像可更换',
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.textSecondary),
-            ),
-          ),
-          // 设置项
-          if (conversation != null)
+      body: AppPageBody(
+        child: ListView(
+          children: [
+            // 成员区：单聊 = 对方头像（点击换头像）；群聊 = 全部成员宫格（点击进其 AI 设置）
             Material(
               color: Colors.white,
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('置顶聊天', style: TextStyle(fontSize: 16)),
-                    value: conversation.pinned,
-                    activeTrackColor: AppColors.primary,
-                    onChanged: (v) => ref
-                        .read(conversationListProvider.notifier)
-                        .setFlag(conversationId, pinned: v),
-                  ),
-                  const Divider(indent: 16, height: 1),
-                  SwitchListTile(
-                    title:
-                        const Text('消息免打扰', style: TextStyle(fontSize: 16)),
-                    value: conversation.muted,
-                    activeTrackColor: AppColors.primary,
-                    onChanged: (v) => ref
-                        .read(conversationListProvider.notifier)
-                        .setFlag(conversationId, muted: v),
-                  ),
-                  const Divider(indent: 16, height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.wallpaper_outlined,
-                        color: AppColors.primary),
-                    title: const Text('聊天背景', style: TextStyle(fontSize: 16)),
-                    subtitle: Text(
-                      chatBackground.imageBytes != null
-                          ? '自定义图片'
-                          : chatBackground.colorValue == null
-                              ? '默认背景'
-                              : '已设置预设颜色',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  spacing: 20,
+                  runSpacing: 12,
+                  children: [
+                    if (isGroup)
+                      for (final m in members)
+                        _MemberCell(
+                          contact: m,
+                          onTap: () => _openMemberSettings(context, ref, m),
+                        )
+                    else if (contact != null)
+                      _MemberCell(
+                        contact: contact,
+                        onTap: () => _changeAvatar(context, ref, contact),
+                      ),
+                    // 添加成员入口（仿微信 + 号格）
+                    _MemberCell(
+                      contact: null,
+                      onTap: () => _addMember(context, contact, conversation),
                     ),
-                    trailing: const Icon(Icons.chevron_right,
-                        color: AppColors.textSecondary),
-                    onTap: () => _showBackgroundPicker(
-                      context,
-                      ref,
-                      chatBackground,
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, top: 6, bottom: 12),
+              child: Text(
+                isGroup ? '点成员头像可改其 AI 设置，+ 号添加成员' : '点击头像可更换',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            // 设置项
+            if (conversation != null)
+              Material(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: const Text('置顶聊天', style: TextStyle(fontSize: 16)),
+                      value: conversation.pinned,
+                      activeTrackColor: AppColors.primary,
+                      onChanged: (v) => ref
+                          .read(conversationListProvider.notifier)
+                          .setFlag(conversationId, pinned: v),
                     ),
-                  ),
-                  if (aiProfile != null) ...[
+                    const Divider(indent: 16, height: 1),
+                    SwitchListTile(
+                      title: const Text(
+                        '消息免打扰',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      value: conversation.muted,
+                      activeTrackColor: AppColors.primary,
+                      onChanged: (v) => ref
+                          .read(conversationListProvider.notifier)
+                          .setFlag(conversationId, muted: v),
+                    ),
                     const Divider(indent: 16, height: 1),
                     ListTile(
-                      leading: Icon(
-                        relationshipStageForUser(aiProfile) == '相爱'
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: relationshipStageForUser(aiProfile) == '相爱'
-                            ? Colors.redAccent
-                            : AppColors.primary,
+                      leading: const Icon(
+                        Icons.wallpaper_outlined,
+                        color: AppColors.primary,
                       ),
-                      title: const Text('关系阶段', style: TextStyle(fontSize: 16)),
+                      title: const Text('聊天背景', style: TextStyle(fontSize: 16)),
                       subtitle: Text(
-                        relationshipStageForUser(aiProfile),
+                        chatBackground.imageBytes != null
+                            ? '自定义图片'
+                            : chatBackground.colorValue == null
+                            ? '默认背景'
+                            : '已设置预设颜色',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
                         ),
                       ),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: AppColors.textSecondary,
+                      ),
+                      onTap: () =>
+                          _showBackgroundPicker(context, ref, chatBackground),
                     ),
+                    if (aiProfile != null) ...[
+                      const Divider(indent: 16, height: 1),
+                      ListTile(
+                        leading: Icon(
+                          relationshipStageForUser(aiProfile) == '相爱'
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: relationshipStageForUser(aiProfile) == '相爱'
+                              ? Colors.redAccent
+                              : AppColors.primary,
+                        ),
+                        title: const Text(
+                          '关系阶段',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        subtitle: Text(
+                          relationshipStageForUser(aiProfile),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
+                ),
+              ),
+            const SizedBox(height: 8),
+            Material(
+              color: Colors.white,
+              child: Column(
+                children: [
+                  if (contact != null)
+                    ListTile(
+                      title: Text(
+                        isGroup ? '群聊名称' : '设置备注和标签',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            contact.remark ?? '',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.textSecondary,
+                          ),
+                        ],
+                      ),
+                      onTap: () => _editRemark(context, ref, contact),
+                    ),
+                  const Divider(indent: 16, height: 1),
+                  ListTile(
+                    title: const Text('查找聊天记录', style: TextStyle(fontSize: 16)),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                    ),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ChatSearchPage(conversationId: conversationId),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          const SizedBox(height: 8),
-          Material(
-            color: Colors.white,
-            child: Column(
-              children: [
-                if (contact != null)
-                  ListTile(
-                    title: Text(isGroup ? '群聊名称' : '设置备注和标签',
-                        style: const TextStyle(fontSize: 16)),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          contact.remark ?? '',
-                          style: const TextStyle(
-                              fontSize: 15, color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.chevron_right,
-                            color: AppColors.textSecondary),
-                      ],
-                    ),
-                    onTap: () => _editRemark(context, ref, contact),
+            // AI 会话专属：人设/知识库/聊天记录设置
+            if (contact?.isAi ?? false) ...[
+              const SizedBox(height: 8),
+              Material(
+                color: Colors.white,
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.smart_toy_outlined,
+                    color: AppColors.primary,
                   ),
-                const Divider(indent: 16, height: 1),
-                ListTile(
-                  title: const Text('查找聊天记录',
-                      style: TextStyle(fontSize: 16)),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: AppColors.textSecondary),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) =>
-                          ChatSearchPage(conversationId: conversationId))),
+                  title: const Text('AI 设置', style: TextStyle(fontSize: 16)),
+                  subtitle: const Text(
+                    '人设、知识库、聊天记录风格',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onTap: () => context.push('/chat/$conversationId/ai'),
                 ),
-              ],
-            ),
-          ),
-          // AI 会话专属：人设/知识库/聊天记录设置
-          if (contact?.isAi ?? false) ...[
+              ),
+            ],
             const SizedBox(height: 8),
             Material(
               color: Colors.white,
               child: ListTile(
-                leading: const Icon(Icons.smart_toy_outlined,
-                    color: AppColors.primary),
-                title: const Text('AI 设置', style: TextStyle(fontSize: 16)),
-                subtitle: const Text('人设、知识库、聊天记录风格',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                trailing: const Icon(Icons.chevron_right,
-                    color: AppColors.textSecondary),
-                onTap: () => context.push('/chat/$conversationId/ai'),
+                title: const Center(
+                  child: Text(
+                    '清空聊天记录',
+                    style: TextStyle(fontSize: 16, color: Colors.red),
+                  ),
+                ),
+                onTap: () => _clearHistory(context, ref),
               ),
             ),
           ],
-          const SizedBox(height: 8),
-          Material(
-            color: Colors.white,
-            child: ListTile(
-              title: const Center(
-                child: Text('清空聊天记录',
-                    style: TextStyle(fontSize: 16, color: Colors.red)),
-              ),
-              onTap: () => _clearHistory(context, ref),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -238,96 +273,96 @@ class ChatInfoPage extends ConsumerWidget {
     WidgetRef ref,
     ChatBackground current,
   ) {
-    showModalBottomSheet<void>(
+    showDialog<void>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '聊天背景',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 18),
-              GridView.count(
-                crossAxisCount: 4,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                children: [
-                  for (final color in _backgroundColors)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () async {
-                        await ref
-                            .read(chatBackgroundProvider(conversationId).notifier)
-                            .setColor(color.toARGB32());
-                        if (sheetContext.mounted) {
-                          Navigator.pop(sheetContext);
-                        }
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: current.imageBytes == null &&
-                                    current.colorValue == color.toARGB32()
-                                ? AppColors.primary
-                                : AppColors.divider,
-                            width: current.imageBytes == null &&
-                                    current.colorValue == color.toARGB32()
-                                ? 2
-                                : 1,
-                          ),
-                        ),
-                        child: current.imageBytes == null &&
-                                current.colorValue == color.toARGB32()
-                            ? const Icon(Icons.check, color: AppColors.primary)
-                            : null,
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(sheetContext);
-                    await _pickChatBackground(context, ref);
-                  },
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('从相册选择'),
-                ),
-              ),
-              if (current.imageBytes != null || current.colorValue != null)
-                Center(
-                  child: TextButton(
-                    onPressed: () async {
+      builder: (sheetContext) => WeChatDialog(
+        title: const Text('聊天背景'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GridView.count(
+              crossAxisCount: 4,
+              childAspectRatio: 1.2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              children: [
+                for (final color in _backgroundColors)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () async {
                       await ref
                           .read(chatBackgroundProvider(conversationId).notifier)
-                          .clear();
-                      if (sheetContext.mounted) Navigator.pop(sheetContext);
+                          .setColor(color.toARGB32());
+                      if (sheetContext.mounted) {
+                        Navigator.pop(sheetContext);
+                      }
                     },
-                    child: const Text('恢复默认背景'),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color:
+                              current.imageBytes == null &&
+                                  current.colorValue == color.toARGB32()
+                              ? AppColors.primary
+                              : AppColors.divider,
+                          width:
+                              current.imageBytes == null &&
+                                  current.colorValue == color.toARGB32()
+                              ? 2
+                              : 1,
+                        ),
+                      ),
+                      child:
+                          current.imageBytes == null &&
+                              current.colorValue == color.toARGB32()
+                          ? const Icon(Icons.check, color: AppColors.primary)
+                          : null,
+                    ),
                   ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(sheetContext);
+                  await _pickChatBackground(context, ref);
+                },
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text('从相册选择'),
+              ),
+            ),
+            if (current.imageBytes != null || current.colorValue != null)
+              Center(
+                child: TextButton(
+                  onPressed: () async {
+                    await ref
+                        .read(chatBackgroundProvider(conversationId).notifier)
+                        .clear();
+                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                  },
+                  child: const Text('恢复默认背景'),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(sheetContext),
+            child: const Text('取消'),
+          ),
+        ],
       ),
     );
   }
 
-  Future<void> _pickChatBackground(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _pickChatBackground(BuildContext context, WidgetRef ref) async {
     try {
       final picked = await ImagePicker().pickImage(
         source: ImageSource.gallery,
@@ -341,35 +376,45 @@ class ChatInfoPage extends ConsumerWidget {
           .read(chatBackgroundProvider(conversationId).notifier)
           .setImage(bytes);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('聊天背景已更新')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('聊天背景已更新')));
       }
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('选择背景失败')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('选择背景失败')));
       }
     }
   }
 
   /// + 号格：群聊 → 增删成员；单聊 AI → 拉 TA 一起建群；其他 → 占位
-  void _addMember(BuildContext context, Contact? contact,
-      Conversation? conversation) {
+  void _addMember(
+    BuildContext context,
+    Contact? contact,
+    Conversation? conversation,
+  ) {
     if (conversation == null || contact == null) return;
     if (contact.isGroup) {
-      Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => GroupCreatePage(existing: conversation)));
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => GroupCreatePage(existing: conversation),
+        ),
+      );
     } else {
-      Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => GroupCreatePage(initialSelected: [contact])));
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => GroupCreatePage(initialSelected: [contact]),
+        ),
+      );
     }
   }
 
   /// 群成员头像 → 跳到该成员单聊会话的 AI 设置页（人设/知识库/模型共享）
   void _openMemberSettings(
-      BuildContext context, WidgetRef ref, Contact member) {
+    BuildContext context,
+    WidgetRef ref,
+    Contact member,
+  ) {
     for (final c in ref.read(conversationListProvider).value ?? const []) {
       if (!c.contact.isGroup && c.contact.id == member.id) {
         context.push('/chat/${c.id}/ai');
@@ -380,7 +425,10 @@ class ChatInfoPage extends ConsumerWidget {
 
   /// 设置备注：空内容 = 清除备注恢复原名（群聊时即群聊名称）
   Future<void> _editRemark(
-      BuildContext context, WidgetRef ref, Contact contact) async {
+    BuildContext context,
+    WidgetRef ref,
+    Contact contact,
+  ) async {
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => EditFieldPage(
@@ -412,7 +460,7 @@ class ChatInfoPage extends ConsumerWidget {
   Future<void> _clearHistory(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => WeChatDialog(
         title: const Text('清空聊天记录'),
         content: const Text('确定删除该会话的全部聊天记录吗？'),
         actions: [
@@ -430,14 +478,11 @@ class ChatInfoPage extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     await ref.read(messageRepositoryProvider).init();
-    await ref
-        .read(messageRepositoryProvider)
-        .clearConversation(conversationId);
+    await ref.read(messageRepositoryProvider).clearConversation(conversationId);
     ref.invalidate(chatMessagesProvider(conversationId));
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('已清空'), duration: Duration(seconds: 1)),
+        const SnackBar(content: Text('已清空'), duration: Duration(seconds: 1)),
       );
     }
   }
@@ -464,11 +509,13 @@ class _MemberCell extends StatelessWidget {
                   height: 56,
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.divider),
-                    borderRadius:
-                        BorderRadius.circular(AppDimens.avatarRadius),
+                    borderRadius: BorderRadius.circular(AppDimens.avatarRadius),
                   ),
-                  child: const Icon(Icons.add,
-                      color: AppColors.textSecondary, size: 30),
+                  child: const Icon(
+                    Icons.add,
+                    color: AppColors.textSecondary,
+                    size: 30,
+                  ),
                 ),
           const SizedBox(height: 6),
           SizedBox(
@@ -479,7 +526,9 @@ class _MemberCell extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary),
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ],

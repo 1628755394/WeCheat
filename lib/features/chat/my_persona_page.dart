@@ -1,3 +1,5 @@
+import '../../core/widgets/app_page_body.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,96 +23,119 @@ class MyPersonaPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.searchBg,
       appBar: AppBar(title: const Text('我与 TA')),
-      body: ListView(
-        children: [
-          const _Header('我是谁'),
-          Material(
-            color: Colors.white,
-            child: Column(
-              children: [
-                ListTile(
-                  title: const Text('我的人设', style: TextStyle(fontSize: 16)),
-                  subtitle: Text(
-                    profile.userPersona.isEmpty
-                        ? '未设置：告诉 TA 你的名字、身份、习惯'
-                        : profile.userPersona,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppColors.textSecondary),
-                  ),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: AppColors.textSecondary),
-                  onTap: () => _edit(context,
+      body: AppPageBody(
+        child: ListView(
+          children: [
+            const _Header('我是谁'),
+            Material(
+              color: Colors.white,
+              child: Column(
+                children: [
+                  ListTile(
+                    title: const Text('我的人设', style: TextStyle(fontSize: 16)),
+                    subtitle: Text(
+                      profile.userPersona.isEmpty
+                          ? '未设置：告诉 TA 你的名字、身份、习惯'
+                          : profile.userPersona,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                    ),
+                    onTap: () => _edit(
+                      context,
                       title: '我的人设',
                       initial: profile.userPersona,
                       hint: '例：我叫阿哲，计算机系大四，加班狗，爱熬夜打代码',
-                      onSave: notifier.setUserPersona),
-                ),
-                const Divider(indent: 16, height: 1),
-                ListTile(
-                  title: const Text('我们的关系与经历',
-                      style: TextStyle(fontSize: 16)),
-                  subtitle: Text(
-                    profile.relationship.isEmpty
-                        ? '未设置：你们怎么认识的、一起经历过什么'
-                        : profile.relationship,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppColors.textSecondary),
+                      onSave: notifier.setUserPersona,
+                    ),
                   ),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: AppColors.textSecondary),
-                  onTap: () => _edit(context,
+                  const Divider(indent: 16, height: 1),
+                  ListTile(
+                    title: const Text(
+                      '我们的关系与经历',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    subtitle: Text(
+                      profile.relationship.isEmpty
+                          ? '未设置：你们怎么认识的、一起经历过什么'
+                          : profile.relationship,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                    ),
+                    onTap: () => _edit(
+                      context,
                       title: '我们的关系与经历',
                       initial: profile.relationship,
                       hint: '例：我们是高中同桌，大学异地三年，去年她表白我拒绝了，现在是暧昧期',
-                      onSave: notifier.setRelationship),
-                ),
-              ],
+                      onSave: notifier.setRelationship,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          _Header('TA 的喜好词（聊到涨好感 · 当前 ${profile.affinity}% · ${relationshipStageForUser(profile)}）'),
-          _WordList(
-            words: profile.likes,
-            hint: '例：她爱喝的奶茶、想去的地方、在乎的事',
-            onAdd: notifier.addLike,
-            onRemove: notifier.removeLikeAt,
-            icon: Icons.favorite_border,
-            color: AppColors.primary,
-          ),
-          const _Header('TA 的厌恶词（聊到掉好感，好感度过低会冷暴力你）'),
-          _WordList(
-            words: profile.dislikes,
-            hint: '例：前任、放鸽子、不回复消息',
-            onAdd: notifier.addDislike,
-            onRemove: notifier.removeDislikeAt,
-            icon: Icons.heart_broken,
-            color: Colors.redAccent,
-          ),
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              '聊到喜好词 +6、厌恶词 -5；阶段：相离（<0）· 相遇（0–19）· 相识（20–39）· 相知（40–59）· 相爱（60+）。',
-              style:
-                  TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            _Header(
+              'TA 的喜好词（聊到涨好感 · 当前 ${profile.affinity}% · ${relationshipStageForUser(profile)}）',
             ),
-          ),
-        ],
+            _WordList(
+              words: profile.likes,
+              hint: '例：她爱喝的奶茶、想去的地方、在乎的事',
+              onAdd: notifier.addLike,
+              onRemove: notifier.removeLikeAt,
+              icon: Icons.favorite_border,
+              color: AppColors.primary,
+            ),
+            const _Header('TA 的厌恶词（聊到掉好感，好感度过低会冷暴力你）'),
+            _WordList(
+              words: profile.dislikes,
+              hint: '例：前任、放鸽子、不回复消息',
+              onAdd: notifier.addDislike,
+              onRemove: notifier.removeDislikeAt,
+              icon: Icons.heart_broken,
+              color: Colors.redAccent,
+            ),
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                '聊到喜好词 +6、厌恶词 -5；阶段：相离（<0）· 相遇（0–19）· 相识（20–39）· 相知（40–59）· 相爱（60+）。',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Future<void> _edit(BuildContext context,
-      {required String title,
-      required String initial,
-      required String hint,
-      required Future<void> Function(String) onSave}) async {
+  Future<void> _edit(
+    BuildContext context, {
+    required String title,
+    required String initial,
+    required String hint,
+    required Future<void> Function(String) onSave,
+  }) async {
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => EditFieldPage(
-            title: title, initial: initial, hint: hint, maxLines: 8),
+          title: title,
+          initial: initial,
+          hint: hint,
+          maxLines: 8,
+        ),
       ),
     );
     if (result != null) await onSave(result);
@@ -123,11 +148,12 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-        child: Text(text,
-            style: const TextStyle(
-                fontSize: 13, color: AppColors.textSecondary)),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+    ),
+  );
 }
 
 /// 词条列表 + 添加输入行
@@ -172,19 +198,23 @@ class _WordListState extends ConsumerState<_WordList> {
             ListTile(
               dense: true,
               leading: Icon(widget.icon, size: 18, color: widget.color),
-              title: Text(widget.words[i],
-                  style: const TextStyle(fontSize: 14)),
+              title: Text(
+                widget.words[i],
+                style: const TextStyle(fontSize: 14),
+              ),
               trailing: IconButton(
-                icon: const Icon(Icons.close,
-                    size: 18, color: AppColors.textSecondary),
+                icon: const Icon(
+                  Icons.close,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
                 onPressed: () => widget.onRemove(i),
               ),
             ),
           ],
           const Divider(height: 1),
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Row(
               children: [
                 Expanded(
@@ -193,8 +223,9 @@ class _WordListState extends ConsumerState<_WordList> {
                     decoration: InputDecoration(
                       hintText: widget.hint,
                       hintStyle: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary),
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
                       border: InputBorder.none,
                       isDense: true,
                     ),

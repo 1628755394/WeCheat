@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wecheat/features/call/live2d_actor.dart';
+import 'package:wecheat/features/call/mao_actions.dart';
 import 'package:wecheat/models/ai_profile.dart';
 import 'package:wecheat/models/expression_profile.dart';
 import 'package:wecheat/services/virtual_actor.dart';
@@ -99,4 +100,71 @@ void main() {
     expect(parameters['ParamBreath'], 0.8);
     expect(parameters['ParamA'], 0.6);
   });
+
+  test('typed action phrases map to supported Live2D actions', () {
+    expect(VirtualActor.parseAction('请对我挥挥手'), ActorAction.wave);
+    expect(VirtualActor.parseAction('点点头好吗'), ActorAction.nod);
+    expect(VirtualActor.parseAction('开心地欢呼一下'), ActorAction.cheer);
+    expect(VirtualActor.parseAction('眨眨眼'), ActorAction.wink);
+    expect(VirtualActor.parseAction('今天吃什么'), isNull);
+    expect(VirtualActor.parseAction('摆手'), ActorAction.wave);
+    expect(VirtualActor.parseAction('跳舞'), isNull);
+    expect(VirtualActor.parseAction('微笑'), ActorAction.smile);
+    expect(VirtualActor.parseAction('摇摇头'), ActorAction.shakeHead);
+    expect(VirtualActor.parseAction('抬腿'), ActorAction.raiseLeg);
+    expect(VirtualActor.parseAction('停止跳舞'), ActorAction.stop);
+    expect(VirtualActor.parseAction('不要跳舞'), isNull);
+  });
+
+  test('conversation is independent of explicit action commands', () {
+    final actor = VirtualActor(const AiProfile());
+    var requests = 0;
+    actor.addListener(() => requests++);
+    actor.hearUser('挥手');
+    expect(requests, 0);
+    expect(actor.requestAction(ActorAction.wave), isTrue);
+    expect(actor.requestAction(ActorAction.wave), isTrue);
+    expect(requests, 2);
+    expect(actor.requestAction(ActorAction.raiseLeg), isFalse);
+    expect(requests, 2);
+    actor.dispose();
+  });
+
+  test('commands move the correct parameters and fade back to neutral', () {
+    expect(
+      maoActionParameters(ActorAction.shakeHead, 0.5)['ParamAngleX'],
+      isNot(0),
+    );
+    expect(maoActionParameters(ActorAction.nod, 0.5)['ParamAngleY'], isNot(0));
+    expect(
+      maoActionParameters(ActorAction.wink, 0.25)['ParamEyeLOpen'],
+      lessThan(1),
+    );
+    expect(maoActionParameters(ActorAction.raiseLeg, 1), isEmpty);
+    for (final action in ActorAction.values) {
+      final duration = maoActionDuration(action);
+      for (final value in maoActionParameters(action, duration).entries) {
+        expect(value.value, value.key.contains('Open') ? 1 : 0);
+      }
+    }
+  });
+
+  test(
+    'wave lifts the arm before moving the wrist and lowers it at the end',
+    () {
+      final lift = maoActionParameters(ActorAction.wave, 0.3);
+      final wave = maoActionParameters(ActorAction.wave, 0.8);
+      expect(lift['ParamArmLA01'], greaterThan(0));
+      expect(lift['ParamHandLA'], 0);
+      expect(wave['ParamBodyAngleX'], 0);
+      expect(wave['ParamArmLA01'], 18);
+      expect(wave['ParamArmLA03'], isNot(0));
+      expect(maoActionParameters(ActorAction.wave, 3.6)['ParamArmLA01'], 0);
+      expect(
+        supportsModelAction(['ParamAngleX'], ActorAction.shakeHead),
+        isTrue,
+      );
+      expect(supportsModelAction(['ParamAngleX'], ActorAction.wave), isFalse);
+    },
+  );
 }

@@ -33,6 +33,7 @@ class Live2DWindowsView {
   void SetRenderingPaused(bool paused) { paused_ = paused; }
   void StartMotion(const std::string& group, int index, int priority);
   void SetExpression(int index);
+  void StopMotions();
   void SetParameter(const std::string& parameter_id, float value);
   void SetMotionSpeed(float speed);
   void SetDragging(float x, float y);

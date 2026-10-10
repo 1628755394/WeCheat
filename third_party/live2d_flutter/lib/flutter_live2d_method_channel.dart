@@ -88,6 +88,15 @@ class MethodChannelFlutterLive2d extends FlutterLive2dPlatform {
   }
 
   @override
+  Future<void> stopMotions({required int viewId}) async {
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      await methodChannel.invokeMethod<void>('stopMotions', {'viewId': viewId});
+    } else {
+      await super.stopMotions(viewId: viewId);
+    }
+  }
+
+  @override
   Future<void> setParameter({
     required int viewId,
     required String parameterId,

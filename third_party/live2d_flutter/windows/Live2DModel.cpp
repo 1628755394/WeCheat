@@ -281,9 +281,22 @@ void Live2DModel::SetExpression(Csm::csmInt32 index) {
   }
 }
 
+void Live2DModel::StopMotions() {
+  _motionManager->StopAllMotions();
+  motion_speed_ = 1.0f;
+  if (_model) {
+    for (Csm::csmInt32 index = 0; index < _model->GetParameterCount(); ++index) {
+      _model->SetParameterValue(index, _model->GetParameterDefaultValue(index));
+    }
+    _model->SaveParameters();
+  }
+}
+
 void Live2DModel::ResizeMaskBuffer(int width, int height) {
   auto* renderer = GetRenderer<Rendering::CubismRenderer_D3D11>();
   if (renderer) {
+    renderer->SetRenderTargetSize(static_cast<Csm::csmUint32>(width),
+                                  static_cast<Csm::csmUint32>(height));
     renderer->SetDrawableClippingMaskBufferSize(
         static_cast<Csm::csmFloat32>(width),
         static_cast<Csm::csmFloat32>(height));

@@ -1,8 +1,11 @@
+import '../../core/widgets/wechat_dialog.dart';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
+import '../../core/widgets/app_page_body.dart';
 import '../../models/ai_profile.dart';
 import '../../providers/ai_profile_provider.dart';
 import '../../services/voice_api_client.dart';
@@ -245,12 +248,68 @@ class _VoiceApiSettingsPageState extends ConsumerState<VoiceApiSettingsPage> {
   }
 
   Future<void> _clearSelection() async {
+    if (!await _confirmDelete('删除当前角色的音色绑定？', '删除后使用系统语音，服务端音色档案仍然保留。')) {
+      return;
+    }
     await ref
         .read(aiProfileProvider(widget.conversationId).notifier)
-        .clearVoiceApiProfile();
+        .clearAllVoice();
     if (mounted) {
       setState(() => _selectedId = '');
       Navigator.of(context).pop();
+    }
+  }
+
+  Future<bool> _confirmDelete(String title, String description) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => WeChatDialog(
+          title: Text(title),
+          content: Text(description),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('删除', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+
+  Future<void> _deleteProfile(VoiceCloneProfile item) async {
+    if (!await _confirmDelete(
+      '删除音色“${item.name}”？',
+      '将删除服务端的克隆档案，使用该音色的角色需要重新选择音色。此操作无法撤销。',
+    )) {
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final api = _client ?? await _connect();
+      await api.deleteClone(item.id);
+      final current = ref.read(aiProfileProvider(widget.conversationId));
+      if (current.voiceCloneProfileId == item.id) {
+        await ref
+            .read(aiProfileProvider(widget.conversationId).notifier)
+            .clearVoiceApiProfile();
+      }
+      if (mounted) {
+        setState(() {
+          _profiles.removeWhere((profile) => profile.id == item.id);
+          if (_selectedId == item.id) _selectedId = '';
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = '删除失败：$error');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -276,139 +335,149 @@ class _VoiceApiSettingsPageState extends ConsumerState<VoiceApiSettingsPage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: _urlController,
-                    keyboardType: TextInputType.url,
-                    decoration: const InputDecoration(
-                      labelText: '语音 API 地址',
-                      hintText: 'http://电脑局域网地址:7072',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _tokenController,
-                    obscureText: true,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Bearer Token（仅保存在内存）',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _loading ? null : _reload,
-                    icon: const Icon(Icons.sync),
-                    label: Text(_loading ? '连接中…' : '连接并刷新音色'),
-                  ),
-                  if (_configured)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text(
-                        '已连接火山引擎克隆服务',
-                        style: TextStyle(color: AppColors.primary),
-                      ),
-                    ),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.redAccent),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (_profiles.isEmpty && !_loading)
-            const Card(
+      body: AppPageBody(
+        child: ListView(
+          padding: const EdgeInsets.all(12),
+          children: [
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
               child: Padding(
-                padding: EdgeInsets.all(18),
-                child: Text('暂无音色。新建时填写火山控制台提供的 Speaker ID。'),
-              ),
-            ),
-          for (final item in _profiles)
-            Card(
-              child: ListTile(
-                leading: Icon(
-                  item.status == 'success'
-                      ? Icons.record_voice_over
-                      : Icons.hourglass_top,
-                  color: item.status == 'success'
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                ),
-                title: Text(item.name),
-                subtitle: Text(
-                  '${item.assetId.isEmpty ? item.speakerId : item.assetId} · ${_resourceLabel(item.resourceId.isEmpty ? _defaultResourceId : item.resourceId)} · ${_statusLabel(item)}${item.failedReason.isEmpty ? '' : '\n${item.failedReason}'}',
-                ),
-                isThreeLine: item.failedReason.isNotEmpty,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (item.status == 'success')
-                      Icon(
-                        _selectedId == item.id
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                        color: AppColors.primary,
+                    TextField(
+                      controller: _urlController,
+                      keyboardType: TextInputType.url,
+                      decoration: const InputDecoration(
+                        labelText: '语音 API 地址',
+                        hintText: 'http://电脑局域网地址:7072',
                       ),
-                    PopupMenuButton<String>(
-                      onSelected: (action) {
-                        if (action == 'resource') _editResource(item);
-                        if (action == 'upload') _upload(item);
-                        if (action == 'sync') _sync(item);
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'resource',
-                          child: Text('修改资源版本'),
-                        ),
-                        if (item.status != 'training' &&
-                            item.status != 'success')
-                          const PopupMenuItem(
-                            value: 'upload',
-                            child: Text('上传训练音频'),
-                          ),
-                        if (item.status != 'pending' &&
-                            item.status != 'success')
-                          const PopupMenuItem(
-                            value: 'sync',
-                            child: Text('查询训练状态'),
-                          ),
-                      ],
                     ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _tokenController,
+                      obscureText: true,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Bearer Token（仅保存在内存）',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _loading ? null : _reload,
+                      icon: const Icon(Icons.sync),
+                      label: Text(_loading ? '连接中…' : '连接并刷新音色'),
+                    ),
+                    if (_configured)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          '已连接火山引擎克隆服务',
+                          style: TextStyle(color: AppColors.primary),
+                        ),
+                      ),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.redAccent),
+                        ),
+                      ),
                   ],
                 ),
-                onTap: item.status == 'success' ? () => _select(item) : null,
               ),
             ),
-          if (profile.hasSoulNexusVoice)
-            OutlinedButton.icon(
-              onPressed: _clearSelection,
-              icon: const Icon(Icons.clear),
-              label: const Text('取消当前角色的音色绑定'),
+            const SizedBox(height: 12),
+            if (_profiles.isEmpty && !_loading)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Text('暂无音色。新建时填写火山控制台提供的 Speaker ID。'),
+                ),
+              ),
+            for (final item in _profiles)
+              Card(
+                child: ListTile(
+                  leading: Icon(
+                    item.status == 'success'
+                        ? Icons.record_voice_over
+                        : Icons.hourglass_top,
+                    color: item.status == 'success'
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                  title: Text(item.name),
+                  subtitle: Text(
+                    '${item.assetId.isEmpty ? item.speakerId : item.assetId} · ${_resourceLabel(item.resourceId.isEmpty ? _defaultResourceId : item.resourceId)} · ${_statusLabel(item)}${item.failedReason.isEmpty ? '' : '\n${item.failedReason}'}',
+                  ),
+                  isThreeLine: item.failedReason.isNotEmpty,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (item.status == 'success')
+                        Icon(
+                          _selectedId == item.id
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          color: AppColors.primary,
+                        ),
+                      PopupMenuButton<String>(
+                        onSelected: (action) {
+                          if (action == 'resource') _editResource(item);
+                          if (action == 'upload') _upload(item);
+                          if (action == 'sync') _sync(item);
+                          if (action == 'delete') _deleteProfile(item);
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text(
+                              '删除音色',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'resource',
+                            child: Text('修改资源版本'),
+                          ),
+                          if (item.status != 'training' &&
+                              item.status != 'success')
+                            const PopupMenuItem(
+                              value: 'upload',
+                              child: Text('上传训练音频'),
+                            ),
+                          if (item.status != 'pending' &&
+                              item.status != 'success')
+                            const PopupMenuItem(
+                              value: 'sync',
+                              child: Text('查询训练状态'),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  onTap: item.status == 'success' ? () => _select(item) : null,
+                ),
+              ),
+            if (profile.hasSoulNexusVoice)
+              OutlinedButton.icon(
+                onPressed: _clearSelection,
+                icon: const Icon(Icons.clear),
+                label: const Text('取消当前角色的音色绑定'),
+              ),
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: Text(
+                'API Token 仅保存在当前运行进程内，退出应用后需重新输入。火山引擎密钥由 API 服务端配置；Speaker ID 需先在火山控制台创建。训练音频支持 WAV、MP3、OGG、M4A、AAC，文件不超过 10MB；推荐 16kHz 单声道 WAV。',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
             ),
-          const Padding(
-            padding: EdgeInsets.all(8),
-            child: Text(
-              'API Token 仅保存在当前运行进程内，退出应用后需重新输入。火山引擎密钥由 API 服务端配置；Speaker ID 需先在火山控制台创建。训练音频支持 WAV、MP3、OGG、M4A、AAC，文件不超过 10MB；推荐 16kHz 单声道 WAV。',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -453,7 +522,7 @@ class _CreateCloneDialogState extends State<_CreateCloneDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => WeChatDialog(
     title: const Text('新建克隆音色'),
     content: SingleChildScrollView(
       child: Column(
@@ -539,7 +608,7 @@ class _ResourcePickerDialogState extends State<_ResourcePickerDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => WeChatDialog(
     title: Text(widget.title),
     content: DropdownButtonFormField<String>(
       initialValue: _resourceId,

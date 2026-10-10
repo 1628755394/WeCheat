@@ -118,6 +118,10 @@ class VoiceApiClient {
   Future<List<VoiceCloneProfile>> listReadyClones() =>
       listClones(status: 'success');
 
+  Future<void> deleteClone(String profileId) async {
+    await _request('DELETE', '/voice-clones/${Uri.encodeComponent(profileId)}');
+  }
+
   Future<VoiceCloneProfile> createClone({
     required String name,
     required String speakerId,
@@ -246,7 +250,9 @@ class VoiceApiClient {
       throw VoiceApiException(_friendlyNetworkError(error));
     }
     final text = await response.stream.bytesToString();
-    final decoded = jsonDecode(text) as Map<String, dynamic>;
+    final decoded = text.trim().isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(text) as Map<String, dynamic>;
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw VoiceApiException(_message(decoded, '语音服务请求失败'));
     }

@@ -20,7 +20,28 @@ class _RemoteSpy extends RemoteLlmService {
   }
 }
 
+class _EmptyOllama extends OllamaService {
+  @override
+  Stream<String> chat(
+    List<({String role, String content})> history, {
+    String? systemPrompt,
+    String? model,
+  }) => const Stream.empty();
+}
+
 void main() {
+  test(
+    'empty model stream reports a failure rather than silently returning',
+    () async {
+      await expectLater(
+        LlmService(_EmptyOllama(), RemoteLlmService()).chat(
+          const AiProfile(),
+          const [(role: 'user', content: '你好')],
+        ).toList(),
+        throwsStateError,
+      );
+    },
+  );
   test('expired remote key gets a clear actionable error', () {
     expect(
       LlmService.friendlyError(Exception('接口返回 403: {"error":"API Key 已过期"}')),

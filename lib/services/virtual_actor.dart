@@ -1,7 +1,10 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 import '../models/ai_profile.dart';
 import '../models/expression_profile.dart';
+import '../models/live2d_model_config.dart';
 
 enum ActorEmotion { happy, shy, angry, sad, surprised, tired, wary }
 
@@ -61,7 +64,9 @@ class ActorFrame {
   };
 }
 
-class VirtualActor {
+enum ActorAction { wave, nod, cheer, wink, shakeHead, smile, raiseLeg, stop }
+
+class VirtualActor extends ChangeNotifier {
   VirtualActor(AiProfile profile, {Random? random})
     : _random = random ?? Random(),
       config = profile.expressionProfile,
@@ -86,6 +91,60 @@ class VirtualActor {
   bool _speaking = false;
   double _speechEnergy = 1;
   ActorFrame frame = const ActorFrame();
+  ActorAction? _requestedAction;
+  CustomActorAction? _requestedCustomAction;
+  int _actionVersion = 0;
+
+  ActorAction? get requestedAction => _requestedAction;
+  CustomActorAction? get requestedCustomAction => _requestedCustomAction;
+  int get actionVersion => _actionVersion;
+
+  static ActorAction? parseAction(String text) {
+    if (RegExp(r'停止|停下|别动|不要动|stop', caseSensitive: false).hasMatch(text)) {
+      return ActorAction.stop;
+    }
+    if (RegExp(r'不要|别|不用|不许').hasMatch(text)) return null;
+    if (RegExp(r'微笑|笑一个|笑一笑|smile', caseSensitive: false).hasMatch(text)) {
+      return ActorAction.smile;
+    }
+    if (RegExp(r'抬腿|踢腿|抬脚').hasMatch(text)) return ActorAction.raiseLeg;
+    if (RegExp(r'摇摇头|摇头|shake\s*head', caseSensitive: false).hasMatch(text)) {
+      return ActorAction.shakeHead;
+    }
+    if (RegExp(r'挥挥手|挥手|摆手|招手|打招呼|wave', caseSensitive: false).hasMatch(text)) {
+      return ActorAction.wave;
+    }
+    if (RegExp(r'点点头|点头|颔首|nod', caseSensitive: false).hasMatch(text)) {
+      return ActorAction.nod;
+    }
+    if (RegExp(r'欢呼|跳一下|开心地动|cheer', caseSensitive: false).hasMatch(text)) {
+      return ActorAction.cheer;
+    }
+    if (RegExp(r'眨眨眼|眨眼|wink', caseSensitive: false).hasMatch(text)) {
+      return ActorAction.wink;
+    }
+    return null;
+  }
+
+  bool requestAction(ActorAction action) {
+    if (!config.animationEnabled || action == ActorAction.raiseLeg) {
+      return false;
+    }
+    _requestedAction = action;
+    _requestedCustomAction = null;
+    _actionVersion++;
+    notifyListeners();
+    return true;
+  }
+
+  bool requestCustomAction(CustomActorAction action) {
+    if (!config.animationEnabled) return false;
+    _requestedAction = null;
+    _requestedCustomAction = action;
+    _actionVersion++;
+    notifyListeners();
+    return true;
+  }
 
   static Map<ActorEmotion, double> _initialBaseline(AiProfile profile) => {
     ActorEmotion.happy: ((profile.affinity + 100) / 200 * 0.18).clamp(0, 0.18),

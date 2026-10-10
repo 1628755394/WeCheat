@@ -13,9 +13,8 @@ using Microsoft::WRL::ComPtr;
 using namespace Live2D::Cubism::Framework;
 
 struct Live2DWindowsView::RenderTarget {
-  ~RenderTarget() {
-    if (shared_handle) CloseHandle(shared_handle);
-  }
+  // GetSharedHandle returns a legacy DXGI handle, not an NT handle. Its
+  // lifetime belongs to the texture and it must not be passed to CloseHandle.
 
   ComPtr<ID3D11Texture2D> texture;
   ComPtr<ID3D11RenderTargetView> render_target_view;
@@ -167,7 +166,15 @@ void Live2DWindowsView::UnloadModel() {
 
 void Live2DWindowsView::StartMotion(const std::string& group, int index,
                                     int priority) {
+  std::lock_guard<std::mutex> lock(parameter_mutex_);
+  pending_parameters_.clear();
   if (model_) model_->StartMotion(group.c_str(), index, priority);
+}
+
+void Live2DWindowsView::StopMotions() {
+  std::lock_guard<std::mutex> lock(parameter_mutex_);
+  pending_parameters_.clear();
+  if (model_) model_->StopMotions();
 }
 
 void Live2DWindowsView::SetExpression(int index) {
@@ -227,8 +234,9 @@ bool Live2DWindowsView::RenderFrame() {
       for (const auto& entry : pending_parameters_) {
         model_->SetParameterValue(entry.first.c_str(), entry.second);
       }
-      pending_parameters_.clear();
     }
+    // External parameters must update drawable geometry after motion/physics.
+    model_->GetModel()->Update();
 
     Csm::CubismMatrix44 projection;
     projection.LoadIdentity();

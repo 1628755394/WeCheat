@@ -76,9 +76,8 @@ class MinePage extends ConsumerWidget {
           const SizedBox(height: 8),
           _MenuSection(menus: [_menus[0]]),
           const SizedBox(height: 8),
-          _MenuSection(menus: _menus.sublist(1, 5)),
+          _MenuSection(menus: _menus.sublist(1)),
           const SizedBox(height: 8),
-          _MenuSection(menus: [_menus[5]]),
         ],
       ),
     );

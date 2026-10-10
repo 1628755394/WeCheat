@@ -101,6 +101,9 @@ abstract class FlutterLive2dPlatform extends PlatformInterface {
     throw UnimplementedError('setExpression() has not been implemented.');
   }
 
+  Future<void> stopMotions({required int viewId}) =>
+      setMotionSpeed(viewId: viewId, speed: 0);
+
   /// Sets the model parameter [parameterId] on [viewId] to [value].
   ///
   /// [parameterId] follows Cubism naming, e.g. `"ParamAngleX"`. The valid

@@ -1,3 +1,5 @@
+import '../../core/widgets/wechat_dialog.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,16 +27,21 @@ class GroupListPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('群聊')),
       body: groups.isEmpty
           ? const Center(
-              child: Text('暂无群聊',
-                  style: TextStyle(color: AppColors.textSecondary)))
+              child: Text(
+                '暂无群聊',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
           : ListView.separated(
               itemCount: groups.length,
               separatorBuilder: (_, _) => const Divider(indent: 72),
               itemBuilder: (context, i) => ListTile(
                 leading: AppAvatar(contact: groups[i].contact, size: 42),
                 title: Text(groups[i].contact.displayName),
-                subtitle: Text('${groups[i].members.length + 1} 人',
-                    style: const TextStyle(fontSize: 12)),
+                subtitle: Text(
+                  '${groups[i].members.length + 1} 人',
+                  style: const TextStyle(fontSize: 12),
+                ),
                 onTap: () => context.push('/chat/${groups[i].id}'),
               ),
             ),
@@ -63,9 +70,9 @@ class _TagsPageState extends ConsumerState<TagsPage> {
   }
 
   Map<String, List<String>> get _tags => {
-        for (final k in _box?.keys ?? const [])
-          k as String: ((_box!.get(k) as List?) ?? const []).cast<String>(),
-      };
+    for (final k in _box?.keys ?? const [])
+      k as String: ((_box!.get(k) as List?) ?? const []).cast<String>(),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -80,33 +87,40 @@ class _TagsPageState extends ConsumerState<TagsPage> {
       body: _box == null
           ? const Center(child: CircularProgressIndicator())
           : tags.isEmpty
-              ? const Center(
-                  child: Text('还没有标签\n点右上角 + 新建',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary)))
-              : ListView.separated(
-                  itemCount: tags.length,
-                  separatorBuilder: (_, _) => const Divider(indent: 16),
-                  itemBuilder: (context, i) {
-                    final name = tags.keys.elementAt(i);
-                    final ids = tags[name]!;
-                    return ListTile(
-                      leading: const Icon(Icons.local_offer,
-                          color: Color(0xFF3D8BFD)),
-                      title: Text(name),
-                      subtitle: Text('${ids.length} 人',
-                          style: const TextStyle(fontSize: 12)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () async {
-                          await _box!.delete(name);
-                          setState(() {});
-                        },
-                      ),
-                      onTap: () => _showMembers(name, ids),
-                    );
-                  },
-                ),
+          ? const Center(
+              child: Text(
+                '还没有标签\n点右上角 + 新建',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          : ListView.separated(
+              itemCount: tags.length,
+              separatorBuilder: (_, _) => const Divider(indent: 16),
+              itemBuilder: (context, i) {
+                final name = tags.keys.elementAt(i);
+                final ids = tags[name]!;
+                return ListTile(
+                  leading: const Icon(
+                    Icons.local_offer,
+                    color: Color(0xFF3D8BFD),
+                  ),
+                  title: Text(name),
+                  subtitle: Text(
+                    '${ids.length} 人',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () async {
+                      await _box!.delete(name);
+                      setState(() {});
+                    },
+                  ),
+                  onTap: () => _showMembers(name, ids),
+                );
+              },
+            ),
     );
   }
 
@@ -131,20 +145,31 @@ class _TagsPageState extends ConsumerState<TagsPage> {
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Text('标签：$tag',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600)),
+              child: Text(
+                '标签：$tag',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             for (final id in ids)
               ListTile(
                 leading: AppAvatar(
-                    contact: all.firstWhere((c) => c.id == id,
-                        orElse: () => Contact(id: id, name: id)),
-                    size: 36),
-                title: Text(all
-                    .firstWhere((c) => c.id == id,
-                        orElse: () => Contact(id: id, name: id))
-                    .displayName),
+                  contact: all.firstWhere(
+                    (c) => c.id == id,
+                    orElse: () => Contact(id: id, name: id),
+                  ),
+                  size: 36,
+                ),
+                title: Text(
+                  all
+                      .firstWhere(
+                        (c) => c.id == id,
+                        orElse: () => Contact(id: id, name: id),
+                      )
+                      .displayName,
+                ),
               ),
           ],
         ),
@@ -159,8 +184,9 @@ class _TagsPageState extends ConsumerState<TagsPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
+        builder: (ctx, setDlg) => WeChatDialog(
           title: const Text('新建标签'),
+          scrollable: false,
           content: SizedBox(
             width: 360,
             child: Column(
@@ -180,9 +206,11 @@ class _TagsPageState extends ConsumerState<TagsPage> {
                           dense: true,
                           value: selected.contains(c.id),
                           title: Text(c.displayName),
-                          onChanged: (v) => setDlg(() => v == true
-                              ? selected.add(c.id)
-                              : selected.remove(c.id)),
+                          onChanged: (v) => setDlg(
+                            () => v == true
+                                ? selected.add(c.id)
+                                : selected.remove(c.id),
+                          ),
                         ),
                     ],
                   ),
@@ -192,11 +220,13 @@ class _TagsPageState extends ConsumerState<TagsPage> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消'),
+            ),
             TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('确定')),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('确定'),
+            ),
           ],
         ),
       ),

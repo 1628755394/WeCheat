@@ -1,3 +1,5 @@
+import '../../core/widgets/app_page_body.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,74 +21,96 @@ class ProfilePage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.searchBg,
       appBar: AppBar(title: const Text('个人信息')),
-      body: ListView(
-        children: [
-          Material(
-            color: Colors.white,
-            child: Column(
-              children: [
-                ListTile(
-                  title: const Text('头像'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppAvatar(contact: me, size: 56),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.chevron_right,
-                          color: AppColors.textSecondary),
-                    ],
+      body: AppPageBody(
+        child: ListView(
+          children: [
+            Material(
+              color: Colors.white,
+              child: Column(
+                children: [
+                  ListTile(
+                    title: const Text('头像'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppAvatar(contact: me, size: 56),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textSecondary,
+                        ),
+                      ],
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    onTap: () => _pickAvatar(context, ref),
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  onTap: () => _pickAvatar(context, ref),
-                ),
-                const Divider(indent: 16),
-                ListTile(
-                  title: const Text('名字'),
-                  trailing: _valueWithChevron(me.name),
-                  onTap: () => _editField(
-                      context, ref, '名字', me.name,
-                      (v) => ref.read(currentUserProvider.notifier).setName(v)),
-                ),
-                const Divider(indent: 16),
-                ListTile(
-                  title: const Text('微信号'),
-                  trailing: Text(me.wechatId,
+                  const Divider(indent: 16),
+                  ListTile(
+                    title: const Text('名字'),
+                    trailing: _valueWithChevron(me.name),
+                    onTap: () => _editField(
+                      context,
+                      ref,
+                      '名字',
+                      me.name,
+                      (v) => ref.read(currentUserProvider.notifier).setName(v),
+                    ),
+                  ),
+                  const Divider(indent: 16),
+                  ListTile(
+                    title: const Text('微信号'),
+                    trailing: Text(
+                      me.wechatId,
                       style: const TextStyle(
-                          color: AppColors.textSecondary, fontSize: 15)),
-                ),
-                const Divider(indent: 16),
-                ListTile(
-                  title: const Text('二维码名片'),
-                  trailing: _valueWithChevron('', icon: Icons.qr_code_2),
-                  onTap: () => context.push('/qr-card'),
-                ),
-              ],
+                        color: AppColors.textSecondary,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  const Divider(indent: 16),
+                  ListTile(
+                    title: const Text('二维码名片'),
+                    trailing: _valueWithChevron('', icon: Icons.qr_code_2),
+                    onTap: () => context.push('/qr-card'),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Material(
-            color: Colors.white,
-            child: Column(
-              children: [
-                const ListTile(
-                  title: Text('更多信息'),
-                  trailing: Icon(Icons.chevron_right,
-                      color: AppColors.textSecondary),
-                ),
-                const Divider(indent: 16),
-                ListTile(
-                  title: const Text('地区'),
-                  trailing:
-                      _valueWithChevron(me.region.isEmpty ? '未设置' : me.region),
-                  onTap: () => _editField(
-                      context, ref, '地区', me.region,
-                      (v) => ref.read(currentUserProvider.notifier).setRegion(v)),
-                ),
-              ],
+            const SizedBox(height: 8),
+            Material(
+              color: Colors.white,
+              child: Column(
+                children: [
+                  const ListTile(
+                    title: Text('更多信息'),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const Divider(indent: 16),
+                  ListTile(
+                    title: const Text('地区'),
+                    trailing: _valueWithChevron(
+                      me.region.isEmpty ? '未设置' : me.region,
+                    ),
+                    onTap: () => _editField(
+                      context,
+                      ref,
+                      '地区',
+                      me.region,
+                      (v) =>
+                          ref.read(currentUserProvider.notifier).setRegion(v),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -98,9 +122,13 @@ class ProfilePage extends ConsumerWidget {
         if (icon != null)
           const Icon(Icons.qr_code_2, size: 20, color: AppColors.textSecondary)
         else
-          Text(value,
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 15)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 15,
+            ),
+          ),
         const SizedBox(width: 4),
         const Icon(Icons.chevron_right, color: AppColors.textSecondary),
       ],
@@ -119,11 +147,17 @@ class ProfilePage extends ConsumerWidget {
   }
 
   /// 单行文本编辑页，返回保存的值
-  Future<void> _editField(BuildContext context, WidgetRef ref, String title,
-      String initial, Future<void> Function(String) onSave) async {
+  Future<void> _editField(
+    BuildContext context,
+    WidgetRef ref,
+    String title,
+    String initial,
+    Future<void> Function(String) onSave,
+  ) async {
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-          builder: (_) => EditFieldPage(title: title, initial: initial)),
+        builder: (_) => EditFieldPage(title: title, initial: initial),
+      ),
     );
     if (result != null && result.trim().isNotEmpty) {
       await onSave(result.trim());

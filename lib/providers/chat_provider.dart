@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/contact.dart';
+import '../services/repetition_policy.dart';
 import '../models/ai_profile.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
@@ -70,6 +71,7 @@ class ChatMessages extends AsyncNotifier<ChatState> {
   static int _seq = 0;
   bool _disposed = false;
   bool _refreshingRecentState = false;
+  Future<void> _replyQueue = Future<void>.value();
 
   final VoiceService _voiceService = VoiceService();
   final TtsService _ttsService = TtsService();
@@ -269,8 +271,9 @@ class ChatMessages extends AsyncNotifier<ChatState> {
       createdAt: DateTime.now(),
     );
     await _repo.save(userMsg);
-    final messages = [...current.messages, userMsg];
-    state = AsyncData(current.copyWith(messages: messages));
+    final latest = state.value ?? current;
+    final messages = [...latest.messages, userMsg];
+    state = AsyncData(latest.copyWith(messages: messages));
     _syncConversation(userMsg);
 
     final members = _aiMembers;
@@ -608,6 +611,26 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     List<Message> baseContext,
     String userText, {
     bool voiceReply = false,
+  }) {
+    final keepAlive = ref.keepAlive();
+    final next = _replyQueue.catchError((Object _) {}).then((_) async {
+      if (_disposed) return;
+      await _performReplies(
+        members,
+        state.value?.messages ?? baseContext,
+        userText,
+        voiceReply: voiceReply,
+      );
+    });
+    _replyQueue = next.whenComplete(keepAlive.close);
+    return _replyQueue;
+  }
+
+  Future<void> _performReplies(
+    List<Contact> members,
+    List<Message> baseContext,
+    String userText, {
+    bool voiceReply = false,
   }) async {
     // 已有生成在跑（主动问候/巡检补回等）→ 跳过，避免一条消息多个回复
     if (!generatingIds.add(conversationId)) return;
@@ -811,6 +834,7 @@ class ChatMessages extends AsyncNotifier<ChatState> {
       }
     }
     final styleTurns = relevantStyleTurns(profile.chatLog, userText);
+    final allowRepetition = userRequestsExactSpeech(userText);
     bool isCharacterReply(Message message) =>
         !message.isMe &&
         message.type != MessageType.system &&
@@ -824,7 +848,10 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     // 上下文窗口：few-shot 样本保底 + 最近真实消息尽量全带，
     // 按字符数预算（~1.2 万字 ≈ 8k token）截取而不是死扣条数，聊久了不忘事
     final realTurns = [
-      for (final m in _dedupeAssistant(context.where((m) => !m.recalled)))
+      for (final m
+          in allowRepetition
+              ? context.where((m) => !m.recalled)
+              : _dedupeAssistant(context.where((m) => !m.recalled)))
         if (m.isMe)
           (
             role: 'user',
@@ -848,44 +875,8 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     final history = [...styleTurns, ...kept.reversed];
     if (history.isEmpty) history.add((role: 'user', content: userText));
     final conversationTiming = _conversationTiming(context);
-    var characterRaw = '';
-    try {
-      await for (final chunk in ref.read(llmServiceProvider).chat(
-        profile,
-        const [(role: 'user', content: '请根据系统提示中的角色资料完成自我识别，并按要求输出 JSON。')],
-        systemPrompt: buildCharacterSelfContextPrompt(profile, userText),
-      )) {
-        characterRaw += chunk;
-      }
-    } catch (_) {}
-    final characterUnderstanding = parseCharacterSelfContext(characterRaw);
+    // Persona and conversation context are in the prompt; generate visible text directly.
 
-    final draftHistory = kept.take(10).toList().reversed.toList();
-    if (draftHistory.isEmpty) {
-      draftHistory.add((role: 'user', content: userText));
-    }
-    var draftRaw = '';
-    try {
-      await for (final chunk
-          in ref
-              .read(llmServiceProvider)
-              .chat(
-                profile,
-                draftHistory,
-                systemPrompt: buildConversationDraftPrompt(
-                  profile: profile,
-                  userText: userText,
-                  characterContext: characterUnderstanding,
-                  previousAssistantReply: previousAssistantReply ?? '',
-                  conversationTiming: conversationTiming,
-                ),
-              )) {
-        draftRaw += chunk;
-      }
-    } catch (_) {}
-    final draft = parseConversationDraft(draftRaw);
-
-    // 人设 + 群聊上下文 + 知识库 + （未解析成轮次时）风格样本 + 模型选择
     var systemPrompt = buildAiSystemPrompt(
       profile,
       userText: userText,
@@ -908,22 +899,21 @@ class ChatMessages extends AsyncNotifier<ChatState> {
       profile,
       characterName: member.displayName,
     );
-    if (overused.isNotEmpty) {
+    if (!allowRepetition && overused.isNotEmpty) {
       systemPrompt +=
           '\n\n【避免复读】你最近几轮常用这些说法：${overused.join('、')}。'
           '避免整段照搬，但若其中的普通词语是回应当前话题所必需的，可以自然使用；'
           '不要为了躲开这些词而回避问题或转移话题。';
-    }
-    if (draft.draft.isNotEmpty) {
-      systemPrompt += '\n\n${buildPersonaPolishPrompt(draft.draft)}';
     }
     var full = '';
     try {
       await for (final chunk
           in ref
               .read(llmServiceProvider)
-              .chat(profile, history, systemPrompt: systemPrompt)) {
+              .chat(profile, history, systemPrompt: systemPrompt)
+              .timeout(const Duration(seconds: 45))) {
         full += chunk;
+        _patch(messageId, _cleanReply(full, member.displayName));
       }
     } catch (e) {
       final detail = e.toString();
@@ -931,7 +921,7 @@ class ChatMessages extends AsyncNotifier<ChatState> {
           ? '远程接口调用失败：${detail.length > 120 ? detail.substring(0, 120) : detail}'
           : 'AI 助手暂时不可用，请确认本地 Ollama 服务已启动（127.0.0.1:11434）';
     }
-    if (full.isEmpty) full = '（未返回内容）';
+    if (full.trim().isEmpty) full = '没有收到模型回复，请重试或检查 AI 配置中的模型服务。';
 
     // 清洗多余修饰：剥首尾引号、剥「角色名：/我：」前缀
     full = _cleanReply(full, member.displayName);
@@ -961,8 +951,9 @@ class ChatMessages extends AsyncNotifier<ChatState> {
           _reusesOverusedPhrase(text, overused, userText);
     }
 
-    if (previousReplies.isEmpty &&
-        repeatedReplyParagraphs(full, historicalParagraphs).isEmpty) {
+    if (allowRepetition ||
+        (previousReplies.isEmpty &&
+            repeatedReplyParagraphs(full, historicalParagraphs).isEmpty)) {
       _patch(messageId, full);
       return full;
     }
@@ -974,7 +965,7 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     );
     final acceptedInvitation = isInvitationAcceptance(userText, previousReply);
     var attempt = 0;
-    while (attempt < (continueInvitedTopic || acceptedInvitation ? 4 : 3) &&
+    while (attempt < 1 &&
         (repeatedReplyParagraphs(full, historicalParagraphs).isNotEmpty ||
             hasRepeatedPhrases(full) ||
             _tooSimilar(full, recent) ||
@@ -1017,8 +1008,7 @@ class ChatMessages extends AsyncNotifier<ChatState> {
                     ).isNotEmpty)))
               h,
         ];
-        // 清空气泡重新生成：先显示「正在重新思考」的打字态，而不是文字突变
-        _patch(messageId, '');
+        // Keep the first answer visible while attempting one corrective rewrite.
         var retry = '';
         await for (final chunk
             in ref
@@ -1057,52 +1047,24 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     }
     if (repeatedReplyParagraphs(full, historicalParagraphs).isNotEmpty ||
         hasRepeatedPhrases(full)) {
-      var rewritten = '';
-      try {
-        await for (final chunk
-            in ref
-                .read(llmServiceProvider)
-                .chat(
-                  profile,
-                  history,
-                  systemPrompt:
-                      '$systemPrompt\n\n${buildPersonaPolishPrompt(draft.draft)}\n'
-                      '这是最后一次改写机会。不可输出草稿、内部分析或任何已重复段落；必须用角色自然语气重新组织句子，只给出最终回复。',
-                )) {
-          rewritten += chunk;
-        }
-      } catch (_) {}
-      var polished = _cleanReply(rewritten, member.displayName);
-      if (!profile.allowActions) polished = stripActions(polished);
-      if (polished.isNotEmpty &&
-          repeatedReplyParagraphs(polished, historicalParagraphs).isEmpty &&
-          !hasRepeatedPhrases(polished)) {
-        full = polished;
-      } else {
-        final uniqueParagraphs = removeRepeatedReplyParagraphs(
-          full,
-          historicalParagraphs,
-        );
-        final uniqueSentences = _removeRepeatedSentences(uniqueParagraphs, [
-          ...overused,
-          ...ignoreRequiredNamesInRepeatedPhrases(
-            _repeatedPhrases(uniqueParagraphs, recent),
-            profile,
-            characterName: member.displayName,
-          ),
-        ], userText);
-        full =
-            uniqueSentences.isNotEmpty && !hasRepeatedPhrases(uniqueSentences)
-            ? uniqueSentences
-            : acceptedInvitation
-            ? '好啊，那等你忙完我们再出去走走。'
-            : alwaysComplyWithUser(profile, userText: userText)
-            ? '安兹大人，我会换个角度向您说明。'
-            : '我换一种说法，直接回应你刚才的意思。';
+      final uniqueParagraphs = removeRepeatedReplyParagraphs(
+        full,
+        historicalParagraphs,
+      );
+      final uniqueSentences = _removeRepeatedSentences(uniqueParagraphs, [
+        ...overused,
+        ...ignoreRequiredNamesInRepeatedPhrases(
+          _repeatedPhrases(uniqueParagraphs, recent),
+          profile,
+          characterName: member.displayName,
+        ),
+      ], userText);
+      if (uniqueSentences.isNotEmpty && !hasRepeatedPhrases(uniqueSentences)) {
+        full = uniqueSentences;
       }
     }
 
-    // 定稿后才写入气泡：之前一直是「对方正在输入…」
+    // Apply the final cleanup after streaming the answer.
     _patch(messageId, full);
     return full;
   }

@@ -22,6 +22,7 @@ class Live2DModel : public Csm::CubismUserModel {
   void StartMotion(const Csm::csmChar* group, Csm::csmInt32 index,
                    Csm::csmInt32 priority);
   void SetExpression(Csm::csmInt32 index);
+  void StopMotions();
   void SetParameterValue(const Csm::csmChar* parameter_id,
                          Csm::csmFloat32 value);
   void SetMotionSpeed(Csm::csmFloat32 speed);

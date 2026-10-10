@@ -219,7 +219,7 @@ private object Live2DRenderHub {
      * its native resources. Idempotent. Returns immediately if the view is
      * already gone or never existed.
      */
-    fun disposeViewSync(handle: Long, timeoutMs: Long = 2000) {
+    fun disposeViewSync(handle: Long) {
         val latch: CountDownLatch
         synchronized(viewsLock) {
             val v = views.firstOrNull { it.handle == handle } ?: return
@@ -233,7 +233,11 @@ private object Live2DRenderHub {
             }
         }
         try {
-            latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+            // TextureView invokes this on the UI thread. A failed render thread
+            // must not leave navigation blocked forever.
+            if (!latch.await(1500, TimeUnit.MILLISECONDS)) {
+                android.util.Log.e("Live2DRenderHub", "Timed out disposing view $handle")
+            }
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         }
@@ -247,6 +251,10 @@ private object Live2DRenderHub {
 
     private fun renderLoop() {
         if (!initEgl()) {
+            synchronized(viewsLock) {
+                views.forEach { it.disposeLatch?.countDown() }
+                views.clear()
+            }
             running.set(false)
             return
         }

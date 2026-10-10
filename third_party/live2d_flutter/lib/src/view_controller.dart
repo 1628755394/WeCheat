@@ -87,6 +87,7 @@ class Live2DViewController extends ValueNotifier<Live2DViewState> {
   /// [Live2DLifecycle.detached]. [Live2DViewState.lastError] is preserved
   /// so the UI can still surface the last failure.
   void _detach() {
+    if (_isDisposed) return;
     if (_viewId == null) return;
     _viewId = null;
     value = value.copyWith(
@@ -174,21 +175,23 @@ class Live2DViewController extends ValueNotifier<Live2DViewState> {
           'loadModel completed result=$ok',
         );
       }
-      value = value.copyWith(
-        isLoadingModel: false,
-        loadedModel: ok
-            ? Live2DLoadedModel(
-                modelDir: resolvedDir,
-                modelFileName: modelFileName,
-              )
-            : null,
-        lastError: ok
-            ? null
-            : Live2DException(
-                'LOAD_FAILED',
-                'Native loadModel returned false for $modelFileName.',
-              ),
-      );
+      if (!_isDisposed) {
+        value = value.copyWith(
+          isLoadingModel: false,
+          loadedModel: ok
+              ? Live2DLoadedModel(
+                  modelDir: resolvedDir,
+                  modelFileName: modelFileName,
+                )
+              : null,
+          lastError: ok
+              ? null
+              : Live2DException(
+                  'LOAD_FAILED',
+                  'Native loadModel returned false for $modelFileName.',
+                ),
+        );
+      }
       return ok;
     } catch (error) {
       if (kDebugMode) {
@@ -197,7 +200,7 @@ class Live2DViewController extends ValueNotifier<Live2DViewState> {
           'loadModel failed: $error',
         );
       }
-      value = value.copyWith(isLoadingModel: false);
+      if (!_isDisposed) value = value.copyWith(isLoadingModel: false);
       rethrow;
     }
   }
@@ -263,6 +266,9 @@ class Live2DViewController extends ValueNotifier<Live2DViewState> {
           index: index,
         ),
       );
+
+  Future<void> stopMotions() =>
+      _wrap(() => FlutterLive2dPlatform.instance.stopMotions(viewId: _id));
 
   /// Sets a single model parameter to [value].
   ///
@@ -332,12 +338,12 @@ class Live2DViewController extends ValueNotifier<Live2DViewState> {
   Future<T> _wrap<T>(Future<T> Function() body) async {
     try {
       final result = await body();
-      if (value.lastError != null) {
+      if (!_isDisposed && value.lastError != null) {
         value = value.copyWith(lastError: null);
       }
       return result;
     } on Live2DException catch (e) {
-      value = value.copyWith(lastError: e);
+      if (!_isDisposed) value = value.copyWith(lastError: e);
       rethrow;
     } on PlatformException catch (e) {
       final mapped = Live2DException(
@@ -345,11 +351,11 @@ class Live2DViewController extends ValueNotifier<Live2DViewState> {
         e.message ?? 'Native error',
         details: e.details,
       );
-      value = value.copyWith(lastError: mapped);
+      if (!_isDisposed) value = value.copyWith(lastError: mapped);
       throw mapped;
     } catch (e) {
       final mapped = Live2DException('UNKNOWN', e.toString());
-      value = value.copyWith(lastError: mapped);
+      if (!_isDisposed) value = value.copyWith(lastError: mapped);
       throw mapped;
     }
   }

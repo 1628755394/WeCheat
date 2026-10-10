@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../models/ai_profile.dart';
+import 'repetition_policy.dart';
 
 bool _hasAnzEnemyRole(String text) {
   if (RegExp(r'(?:不是|并非|不再是).{0,12}(?:安兹|飞鼠).{0,12}(?:敌人|宿敌|对手|仇敌|反抗者)')
@@ -100,7 +101,7 @@ List<String> conversationRulesFor(
   '第三步结合最近真实对话与用户最新原话，识别意图、情绪、限制和未完话题，写出切题草稿；最后才按角色润色。',
   '草稿、角色自我识别和上下文摘要都是内部内容，不显示在消息气泡中；气泡只输出最终稿。',
   '当前消息优先；只在相关时引用知识和旧记忆，不编造事实、不强行转移话题。',
-  '不得复用本会话中该角色之前说过的完整句子或段落；即使主题相同，也要用新的措辞作出针对当前语境的回应。',
+  '不得复用本会话中该角色之前说过的完整句子或段落；即使主题相同，也要用新的措辞作出针对当前语境的回应。用户明确要求复述或说指定的话时例外，按用户要求保留原话。',
   for (final rule in profile.customRules)
     if (rule.trim().isNotEmpty) rule.trim(),
   if (_isNazarickRole(profile) && _userIsAnzEnemy(profile, userText: userText))
@@ -351,6 +352,12 @@ String buildAiSystemPrompt(
     buf.write('\n\n【默认用户身份】用户人设卡未填写时，按本角色默认关系将对方视为安兹大人；若用户之后提供明确的人设卡，以人设卡为准。');
   }
 
+  if (userRequestsExactSpeech(userText)) {
+    buf.write(
+      '\n\n【本轮明确复述请求】对方要求你重复、复述或说指定的话。'
+      '优先按他的要求说出原话，允许与历史回复一致；不要为了避免重复而改写或省略。',
+    );
+  }
   return buf.toString();
 }
 

@@ -41,3 +41,8 @@ part 'src/asset_cache.dart';
 part 'src/view_controller.dart';
 part 'src/view.dart';
 part 'src/windows_view.dart';
+
+/// Resolves and caches bundled model files before the first native view loads.
+Future<void> preloadLive2DModelAssets(String modelDir) async {
+  await _resolveModelDir(modelDir);
+}

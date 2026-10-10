@@ -21,6 +21,9 @@ class _MockFlutterLive2dPlatform
   Future<void> unloadModel({required int viewId}) => throw UnimplementedError();
 
   @override
+  Future<void> stopMotions({required int viewId}) => throw UnimplementedError();
+
+  @override
   Future<void> setRenderingPaused({
     required int viewId,
     required bool paused,

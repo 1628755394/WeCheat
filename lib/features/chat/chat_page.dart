@@ -1,3 +1,5 @@
+import '../../core/widgets/wechat_dialog.dart';
+
 import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
@@ -25,6 +27,7 @@ import '../../services/voice_recorder.dart';
 import '../conversation/conversation_page.dart';
 import '../home/side_rail.dart';
 import 'my_persona_page.dart';
+import 'message_translation_dialog.dart';
 
 /// 聊天路由入口：窄屏直接聊天页；宽屏 = PC 三栏（导航栏 + 会话列表 + 聊天区）
 class ResponsiveChatPage extends StatelessWidget {
@@ -75,11 +78,12 @@ class ChatPage extends ConsumerStatefulWidget {
 
 class _ChatPageState extends ConsumerState<ChatPage> {
   final _inputController = TextEditingController();
-  final _scrollController = ScrollController();
+  final _scrollController = ScrollController(keepScrollOffset: false);
   final _recorder = VoiceRecorderImpl();
   final _recordWatch = Stopwatch();
   bool _hasText = false;
   bool _nearBottom = true;
+  bool _initialScrollPending = true;
   bool _showEmoji = false;
   bool _recording = false;
   bool _voiceMode = false;
@@ -94,8 +98,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _scrollController.addListener(() {
       if (!_scrollController.hasClients) return;
       final pos = _scrollController.position;
-      _nearBottom = pos.maxScrollExtent - pos.pixels < 120;
+      _nearBottom = pos.pixels < 120;
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.conversationId != widget.conversationId) {
+      _initialScrollPending = true;
+      _nearBottom = true;
+      _quoted = null;
+      _inputController.clear();
+      _hasText = false;
+    }
   }
 
   @override
@@ -182,84 +198,142 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final notifier = ref.read(
       chatMessagesProvider(widget.conversationId).notifier,
     );
-    showModalBottomSheet(
+    showDialog<void>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (message.type == MessageType.text)
-              ListTile(
-                leading: const Icon(Icons.copy),
-                title: const Text('复制'),
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: message.content));
-                  Navigator.pop(ctx);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.format_quote),
-              title: const Text('引用'),
-              onTap: () {
-                Navigator.pop(ctx);
-                setState(() => _quoted = message);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.shortcut),
-              title: const Text('转发'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _forwardMessage(message);
-              },
-            ),
-            if (isAiConv && message.type == MessageType.text)
-              ListTile(
-                leading: Icon(
-                  message.isMemory ? Icons.star : Icons.star_border,
-                  color: Colors.amber,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFFF7F7F7),
+        insetPadding: const EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 240,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (message.type == MessageType.text)
+                  ListTile(
+                    leading: const Icon(Icons.copy),
+                    title: const Text('复制'),
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: message.content));
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                if (message.type == MessageType.text &&
+                    message.content.trim().isNotEmpty) ...[
+                  ListTile(
+                    leading: const Icon(Icons.zoom_out_map),
+                    title: const Text('放大阅读'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      showDialog<void>(
+                        context: context,
+                        builder: (context) => WeChatDialog(
+                          title: const Text('放大阅读'),
+                          content: SingleChildScrollView(
+                            child: SelectableText(
+                              message.content,
+                              style: const TextStyle(fontSize: 24, height: 1.6),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('关闭'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.translate),
+                    title: const Text('翻译'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      final conversations =
+                          ref.read(resolvedConversationListProvider).value ??
+                          [];
+                      final memberConversation = conversations
+                          .where(
+                            (c) =>
+                                c.contact.id == message.senderId &&
+                                !c.contact.isGroup,
+                          )
+                          .firstOrNull;
+                      final profileId = conversation?.contact.isAi == true
+                          ? widget.conversationId
+                          : memberConversation?.id ?? 'conv_ai';
+                      showDialog<void>(
+                        context: context,
+                        builder: (_) => MessageTranslationDialog(
+                          text: message.content,
+                          profileId: profileId,
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                ],
+                ListTile(
+                  leading: const Icon(Icons.format_quote),
+                  title: const Text('引用'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _quoted = message);
+                  },
                 ),
-                title: Text(message.isMemory ? '取消记忆标记' : '标记为记忆'),
-                subtitle: const Text(
-                  '重点记忆会永久进入该 AI 的上下文，不再遗忘',
-                  style: TextStyle(fontSize: 12),
+                ListTile(
+                  leading: const Icon(Icons.shortcut),
+                  title: const Text('转发'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _forwardMessage(message);
+                  },
                 ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  notifier.toggleMemory(message.id);
-                },
-              ),
-            if (isAiConv && !message.isMe)
-              ListTile(
-                leading: const Icon(Icons.volume_up),
-                title: const Text('朗读'),
-                subtitle: const Text(
-                  '用该 AI 导入的音色播放；未导入则用系统语音',
-                  style: TextStyle(fontSize: 12),
+                if (isAiConv && message.type == MessageType.text)
+                  ListTile(
+                    leading: Icon(
+                      message.isMemory ? Icons.star : Icons.star_border,
+                      color: Colors.amber,
+                    ),
+                    title: Text(message.isMemory ? '取消记忆标记' : '标记为记忆'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      notifier.toggleMemory(message.id);
+                    },
+                  ),
+                if (isAiConv && !message.isMe)
+                  ListTile(
+                    leading: const Icon(Icons.volume_up),
+                    title: const Text('朗读'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      notifier.speakMessage(message.id);
+                    },
+                  ),
+                if (message.isMe)
+                  ListTile(
+                    leading: const Icon(Icons.undo),
+                    title: const Text('撤回'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      notifier.recallMessage(message.id);
+                    },
+                  ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('删除', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    notifier.deleteMessage(message.id);
+                  },
                 ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  notifier.speakMessage(message.id);
-                },
-              ),
-            if (message.isMe)
-              ListTile(
-                leading: const Icon(Icons.undo),
-                title: const Text('撤回'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  notifier.recallMessage(message.id);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('删除', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(ctx);
-                notifier.deleteMessage(message.id);
-              },
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -317,7 +391,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        _scrollController.jumpTo(0);
       }
     });
   }
@@ -617,7 +691,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final wishCtl = TextEditingController(text: '恭喜发财，大吉大利');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => WeChatDialog(
         title: const Text('发红包'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -664,7 +738,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final amountCtl = TextEditingController(text: '52.00');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => WeChatDialog(
         title: const Text('转账'),
         content: TextField(
           controller: amountCtl,
@@ -1004,6 +1078,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           .stopPlayback();
     }
 
+    if (_initialScrollPending && chatAsync.hasValue) {
+      _initialScrollPending = false;
+      _scrollToBottom();
+    }
     final generating = chatAsync.value?.generating ?? false;
     final speaker = chatAsync.value?.speakerName;
     final contact = conversation?.contact;
@@ -1224,10 +1302,12 @@ class _MessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       controller: scrollController,
+      reverse: true,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: messages.length,
-      itemBuilder: (context, index) {
+      itemBuilder: (context, reversedIndex) {
+        final index = messages.length - 1 - reversedIndex;
         final msg = messages[index];
         final showTime =
             index == 0 ||

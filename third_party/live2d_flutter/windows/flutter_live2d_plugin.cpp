@@ -250,14 +250,20 @@ void FlutterLive2dPlugin::HandleMethodCall(
       std::lock_guard<std::mutex> lock(views_mutex_);
       const auto it = views_.find(*view_id);
       if (it != views_.end()) {
+        // Serialize Cubism destruction with the render loop, which shares the
+        // same D3D11 device and SDK managers across views.
+        it->second->SetRenderingPaused(true);
+        it->second->UnloadModel();
         view = std::move(it->second);
         views_.erase(it);
       }
     }
     if (view) {
-      view->SetRenderingPaused(true);
+      // Capture may be evaluated before the other function argument. Read the
+      // id before moving view, otherwise MSVC dereferences a null shared_ptr.
+      const int64_t texture_id = view->texture_id();
       texture_registrar_->UnregisterTexture(
-          view->texture_id(), [view = std::move(view)]() {});
+          texture_id, [view = std::move(view)]() {});
     }
     result->Success();
     return;
@@ -322,6 +328,11 @@ void FlutterLive2dPlugin::HandleMethodCall(
     }
     view->StartMotion(*group, static_cast<int>(*index),
                       static_cast<int>(*priority));
+    result->Success();
+    return;
+  }
+  if (method == "stopMotions") {
+    view->StopMotions();
     result->Success();
     return;
   }

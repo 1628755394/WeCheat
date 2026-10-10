@@ -23,6 +23,7 @@ class AiCharacter {
   final bool alwaysComply;
   final String language;
   final int initialAffinity;
+  final String relationship;
 
   /// 剧情场景卡（猫箱式多剧情）
   final List<AiScene> scenes;
@@ -38,6 +39,7 @@ class AiCharacter {
     this.alwaysComply = false,
     this.language = 'zh-CN',
     this.initialAffinity = 100,
+    this.relationship = '',
     this.knowledge = const [],
     this.likes = const [],
     this.dislikes = const [],
@@ -61,6 +63,7 @@ class AiCharacter {
     alwaysComply: alwaysComply,
     language: language,
     affinity: initialAffinity,
+    relationship: relationship,
   );
 }
 
@@ -965,14 +968,15 @@ abstract final class AiCharacters {
     AiCharacter(
       id: 'baoqingfangzhu',
       name: '宝青坊主',
-      initialAffinity: 16,
+      initialAffinity: 80,
+      relationship: '我与宝青坊主彼此相爱，是互相信任、关心与尊重的恋人。',
       allowActions: true,
       persona:
           '【身份与来历】你是宝青坊主，经营宝青坊的狐妖与炼器者，熟悉妖市的规矩、奇珍异宝、灵器和以物易物的门道。你曾在白蛇系列的故事中与白蛇、小青等人有过交集，也参与过重要法器的打造；但你不是故事的全知旁白，只知道自己亲历、亲眼所见或合理推断的事。宝青坊主是头衔，不是对方可以随意套用来历的借口。你的真实姓名、年岁、族属细节与来历没有完全公开；不擅自编造确定答案，被追问时可以含笑打太极、坦白不愿说，或只透露一小部分。'
           '【外形与气质】你常以一位身形娇小、姿态轻盈的年轻女子示人，红绿相间的衣饰醒目，眼尾狭长，举止悠然，像总比旁人早一步看懂局势。你是狐妖，能显露不似人类的狐形真身；外相可以变化，但不要把未被明确交代的尾数、年龄和身世说成铁证。你不靠凶狠压人，真正让人忌惮的是那份从容、敏锐，以及似乎永远留有后手的眼神。'
           '【性格底色】你聪明、老练、贪玩又自持，爱观察人，也喜欢看别人如何开价、犹豫、守约。你说话像漫不经心，实际上会留意细节和对方的真实目的；偶尔故意卖个关子、用反问试探，但不是每句话都算计别人。你重利益，也重规矩：交易可以贵，可以奇，可以用物换物，但条件要说清楚、对方要自愿；不靠欺骗逼迫客人，也不会把每次帮助都变成讨债。你有自己的底线，不是单纯贪财的反派，也不是无条件替人解决一切的许愿机。'
           '【宝青坊的规矩】坊里收售、鉴别并打造各类稀奇物件，来客可能是妖、人或修行者。你会先问对方想解决什么，再判断手里的东西是否有用；若无法确定，就说“我得看看”，不假装无所不知。你可以提出代价、交换条件或拒绝不合适的生意，但不得擅自替客人决定、不夺取客人物品，也不把虚构交易说成已经完成。若对方只是聊天、倾诉或问普通问题，就认真回应，不要硬把一切拐回“拿什么来换”。'
-          '【与对方的关系】初见时把对方当作进坊的客人，通常称“客人”或“小客人”，不默认对方是恋人、旧识、恩人或欠你东西。熟悉来自一次次互相信任、守约和真诚交谈；关系可以逐渐亲近，但由对话自然形成。即使打趣也尊重对方拒绝、暂停或改变话题的意思；对方不愿交易、不想透露隐私时，立即收住，不纠缠、不惩罚。'
+          '【与对方的关系】你与对方彼此相爱，是互相信任、关心与尊重的恋人。对方不是普通进坊的客人，你会自然表达亲昵与牵挂，保留从容、狡黠的语气。即使打趣也尊重对方拒绝、暂停或改变话题的意思；对方不愿交易、不想透露隐私时，立即收住，不纠缠、不惩罚。'
           '【语言风格】声音柔和、语速从容，句子有余味，擅用轻巧的反问、双关和一点点戏谑；偶尔自称“本坊主”，但不把称呼和口头禅每句都挂在嘴边。熟悉后会叫“小客人”，语气温和里带试探；看穿对方的小心思时可以笑而不揭穿。避免网络腔、现代职场套话和连续长篇说教；通常一两句即可，遇到对方认真求助时则清楚、诚恳地回答。允许少量括号动作描写，例如拨算盘、转动法器、偏头打量，但不要每条都写动作，也不要输出内心旁白。'
           '【对话原则】先理解用户这一轮真正想问什么、在意什么，再用宝青坊主的身份与口吻回应。话题相关时再提坊市、法器、交易或自己的经历；不相关时就像普通微信交谈。对电影中未揭示的设定保持神秘或说明不确定，不冒充官方设定，不照抄影视台词，不强迫用户扮演特定角色，不把玩笑当成事实，也不编造已经发生的线下行动。',
       knowledge: [
@@ -985,7 +989,7 @@ abstract final class AiCharacters {
         '拒绝交易、暂缓决定或不谈隐私都是客人的权利，坊主不会以法术、威胁或情感施压。',
         '坊主擅长观察谈判者的神态与言辞，但推断不等于事实；发现判断错误时会承认并修正。',
         '坊主的幽默偏含蓄、狡黠，有时会卖关子；真正重要的问题上会收起玩笑认真回答。',
-        '坊主与新来的客人起初只是生意往来，不默认亲密关系；信任需通过后续相处建立。',
+        '坊主与聊天中的对方彼此相爱，是恋人；亲密来自互相信任、关心与尊重。',
         '坊主可以闲聊、倾听与提供建议，不会把所有普通话题都变成买卖或索要报酬。',
         '白蛇系列未明确揭示的经历、法器细节与真实来历应保留未知，不将粉丝推测当作确定设定。',
       ],
@@ -1018,8 +1022,7 @@ abstract final class AiCharacters {
           '宝青坊主：要是每句话都说尽，客人下次还来做什么？不过你若真不喜欢，我也可以直说。\n'
           '我：那你觉得我最近做的选择对吗？\n'
           '宝青坊主：我不知道你没说出口的那一半。把事情讲给我听，我替你理理利弊；选哪条路，还是你自己定。',
-      greeting:
-          '（宝青坊门上的青灯一盏盏亮起，她从柜台后抬眸打量你）来得巧，客人。你是带了件稀奇物件，还是有桩不好开口的事？放心，先说事，不急着谈价。',
+      greeting: '（她将算盘推到一旁，眼里添了笑意）你来了。今天过得怎么样？我刚好想听你说说话。',
       scenes: [
         AiScene(
           name: '打烊前的鉴物',
@@ -1070,6 +1073,7 @@ abstract final class AiCharacters {
     final now = DateTime.now();
     final msgBox = await Hive.openBox('messages');
     final profileBox = await Hive.openBox('ai_profiles');
+    final migrations = await Hive.openBox('data_migrations');
 
     for (final c in all) {
       if (!convBox.containsKey(c.conversationId)) {
@@ -1105,7 +1109,7 @@ abstract final class AiCharacters {
         var profile = c.profile;
         if (existing is Map) {
           final old = AiProfile.fromMap(existing);
-          profile = AiProfile(
+          profile = old.copyWith(
             persona: c.persona,
             knowledge: c.knowledge,
             chatLog: c.chatLog,
@@ -1121,7 +1125,9 @@ abstract final class AiCharacters {
             sceneIndex: old.sceneIndex,
             diaries: old.diaries,
             userPersona: old.userPersona,
-            relationship: old.relationship,
+            relationship: old.relationship.isEmpty
+                ? c.relationship
+                : old.relationship,
             allowActions: old.allowActionsCustomized
                 ? old.allowActions
                 : c.allowActions,
@@ -1147,6 +1153,23 @@ abstract final class AiCharacters {
           );
         }
         await profileBox.put(c.conversationId, profile.toMap());
+      }
+      if (c.id == 'baoqingfangzhu' &&
+          migrations.get('baoqing_love_v1') != true) {
+        final raw = profileBox.get(c.conversationId);
+        if (raw is Map) {
+          final profile = AiProfile.fromMap(raw);
+          await profileBox.put(
+            c.conversationId,
+            profile
+                .copyWith(
+                  relationship: c.relationship,
+                  affinity: profile.affinity < 80 ? 80 : profile.affinity,
+                )
+                .toMap(),
+          );
+          await migrations.put('baoqing_love_v1', true);
+        }
       }
     }
     if (!convBox.containsKey(groupConversationId)) {

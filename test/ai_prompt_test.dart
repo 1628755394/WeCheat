@@ -79,7 +79,7 @@ void main() {
     expect(character.allowActions, isTrue);
   });
 
-  test('宝青坊主内置角色遵循当前聊天规则且不预设恋爱关系', () {
+  test('宝青坊主内置角色遵循当前聊天规则并设为相爱', () {
     final character = AiCharacters.all.singleWhere(
       (item) => item.id == 'baoqingfangzhu',
     );
@@ -89,9 +89,10 @@ void main() {
     expect(character.name, '宝青坊主');
     expect(character.conversationId, 'conv_char_baoqingfangzhu');
     expect(character.persona, contains('不会把每次帮助都变成讨债'));
-    expect(character.persona, contains('关系可以逐渐亲近，但由对话自然形成'));
-    expect(character.initialAffinity, 16);
-    expect(profile.affinity, 16);
+    expect(character.persona, contains('彼此相爱'));
+    expect(character.initialAffinity, 80);
+    expect(profile.affinityStage, '相爱');
+    expect(profile.relationship, contains('恋人'));
     expect(profile.alwaysComply, isFalse);
     expect(character.knowledge, isNotEmpty);
     expect(character.likes, isNotEmpty);
@@ -100,8 +101,8 @@ void main() {
     expect(prompt, contains('【当前对话规则】'));
     expect(prompt, contains('当前消息优先'));
     expect(prompt, contains('不得复用本会话中该角色之前说过的完整句子或段落'));
-    expect(prompt, contains('【关系疏远】'));
-    expect(prompt, isNot(contains('【关系亲密度】')));
+    expect(prompt, isNot(contains('【关系疏远】')));
+    expect(prompt, contains('【关系亲近】'));
   });
 
   test('空资料使用默认提示词', () {

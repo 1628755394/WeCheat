@@ -13,6 +13,20 @@ class LlmService {
     AiProfile profile,
     List<({String role, String content})> history, {
     String? systemPrompt,
+  }) async* {
+    final source = _chat(profile, history, systemPrompt: systemPrompt);
+    var receivedText = false;
+    await for (final chunk in source.timeout(const Duration(seconds: 45))) {
+      if (chunk.trim().isNotEmpty) receivedText = true;
+      yield chunk;
+    }
+    if (!receivedText) throw StateError('模型未返回文字内容，请重试或更换模型。');
+  }
+
+  Stream<String> _chat(
+    AiProfile profile,
+    List<({String role, String content})> history, {
+    String? systemPrompt,
   }) {
     if (profile.isRemote) {
       // 旧配置兼容：gpt/codex 系模型一律走 Responses API

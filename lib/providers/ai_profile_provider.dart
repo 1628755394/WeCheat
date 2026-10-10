@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/ai_profile.dart';
 import '../models/expression_profile.dart';
+import '../models/live2d_model_config.dart';
 
 /// AI 资料（人设/知识库/聊天风格样本/模型），按会话 id 存 Hive
 /// 每个 AI 好友一套独立配置，互不覆盖
@@ -52,6 +53,13 @@ class AiProfileNotifier extends Notifier<AiProfile> {
 
   Future<void> setExpressionProfile(ExpressionProfile value) =>
       _save(state.copyWith(expressionProfile: value));
+
+  Future<void> setLive2dModel(Live2DModelConfig? value) async {
+    await ensureLoaded();
+    await _save(
+      state.copyWith(live2dModel: value, clearLive2dModel: value == null),
+    );
+  }
 
   Future<void> importWriting({
     required String persona,
@@ -105,6 +113,17 @@ class AiProfileNotifier extends Notifier<AiProfile> {
   }
 
   Future<void> clearVoice() => _save(state.copyWith(clearVoice: true));
+
+  Future<void> clearAllVoice() async {
+    await ensureLoaded();
+    await _save(
+      state.copyWith(
+        clearVoice: true,
+        clearSoulNexusVoice: true,
+        voicePrompt: '',
+      ),
+    );
+  }
 
   Future<void> setVoiceEndpoint(String v) =>
       _save(state.copyWith(voiceEndpoint: v));
