@@ -31,6 +31,10 @@ String? get _exePath {
 /// 能否启动 cc-switch 应用（仅桌面端 true）
 bool get canOpenCcSwitch => _exePath != null;
 
+String get ccSwitchEmptyHint => Platform.isIOS || Platform.isAndroid
+    ? '手机无法直接读取电脑上的 cc-switch 配置，请使用下方「手动填写 Base URL + 密钥」连接服务商'
+    : '未读取到服务商，请检查 cc-switch 配置和本机 SQLite 工具';
+
 /// 打开 cc-switch 主程序（用户在里头改完配置后回 App 重开选择面板即可）
 Future<bool> openCcSwitchApp() async {
   final exe = _exePath;
@@ -47,7 +51,7 @@ Future<List<CcProvider>> loadCcProviders() async {
       final r = await Process.run(exe, [
         '-json',
         db,
-        'SELECT id, name, app_type, settings_config FROM providers;'
+        'SELECT id, name, app_type, settings_config FROM providers;',
       ]);
       if (r.exitCode != 0) continue;
       final out = <CcProvider>[];

@@ -9,6 +9,8 @@ import '../services/repetition_policy.dart';
 import '../models/ai_profile.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
+import '../models/mood_state.dart';
+import '../services/mood_policy.dart';
 import '../repositories/message_repository.dart';
 import '../services/ai_prompt.dart';
 import '../services/llm_service.dart';
@@ -19,6 +21,7 @@ import '../services/tts_service.dart';
 import '../services/voice_api_client.dart';
 import '../services/voice_service.dart';
 import 'ai_profile_provider.dart';
+import 'mood_provider.dart';
 import 'output_mode_provider.dart';
 import 'conversation_provider.dart';
 
@@ -118,6 +121,13 @@ class ChatMessages extends AsyncNotifier<ChatState> {
           proactor = conv.contact;
         }
         if (proactor != null && !generatingIds.contains(conversationId)) {
+          if (!last.isMe && last.senderId == proactor.id) {
+            final mood = ref.read(
+              moodProvider(_profileKeyOf(proactor)).notifier,
+            );
+            await mood.ensureLoaded();
+            await mood.onEvent('已读不回');
+          }
           generatingIds.add(conversationId);
           try {
             final full = await _streamReply(
@@ -371,6 +381,15 @@ class ChatMessages extends AsyncNotifier<ChatState> {
         ],
       ),
     );
+    if (target.isMe) {
+      for (final member in _aiMembers) {
+        unawaited(
+          ref
+              .read(moodProvider(_profileKeyOf(member)).notifier)
+              .onEvent('撤回消息'),
+        );
+      }
+    }
     unawaited(
       ref
           .read(conversationListProvider.notifier)
@@ -747,6 +766,18 @@ class ChatMessages extends AsyncNotifier<ChatState> {
   ]) async {
     final profileKey = _profileKeyOf(member);
     await ref.read(aiProfileProvider(profileKey).notifier).ensureLoaded();
+    final memberMood = ref.read(moodProvider(profileKey).notifier);
+    await memberMood.ensureLoaded();
+    final beforeReplyProfile = ref.read(aiProfileProvider(profileKey));
+    await memberMood.onUserMessage(
+      negative:
+          affinityGain(
+            userText,
+            beforeReplyProfile.likes,
+            dislikes: beforeReplyProfile.dislikes,
+          ) <
+          0,
+    );
     final sendAsVoice =
         asVoice || ref.read(aiProfileProvider(profileKey)).autoVoiceMessages;
     final aiMsg = Message(
@@ -779,11 +810,16 @@ class ChatMessages extends AsyncNotifier<ChatState> {
       memberProfile.likes,
       dislikes: memberProfile.dislikes,
     );
-    if (gain != 0) {
+    final adjustedGain = adjustAffinityGain(
+      gain,
+      ref.read(moodProvider(profileKey)),
+      memberProfile.affinity,
+    );
+    if (adjustedGain != 0) {
       unawaited(
         ref
             .read(aiProfileProvider(_profileKeyOf(member)).notifier)
-            .addAffinity(gain),
+            .addAffinity(adjustedGain),
       );
     }
     if (sendAsVoice && full.isNotEmpty) {
@@ -804,6 +840,7 @@ class ChatMessages extends AsyncNotifier<ChatState> {
       }
     }
     await _repo.save(done);
+    await memberMood.onReply(memberProfile.affinity);
     _syncConversation(done, senderName: member.displayName);
     await _autoSpeakReply(done);
     return done;
@@ -821,6 +858,7 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     // 成员人设/知识库/模型：复用其单聊会话的资料
     final profileKey = _profileKeyOf(member);
     await ref.read(aiProfileProvider(profileKey).notifier).ensureLoaded();
+    await ref.read(moodProvider(profileKey).notifier).ensureLoaded();
 
     final memberProfile = ref.read(aiProfileProvider(profileKey));
     var profile = memberProfile;
@@ -889,6 +927,17 @@ class ChatMessages extends AsyncNotifier<ChatState> {
           ? [for (final m in conv!.members) m.displayName]
           : const [],
     );
+    final moodInstruction = getMoodInstruction(
+      ref.read(moodProvider(profileKey)),
+      profile.affinity,
+    );
+    final showPartial =
+        ref.read(moodProvider(profileKey)).zone(profile.affinity) ==
+        MoodZone.calm;
+    if (moodInstruction.isNotEmpty) {
+      systemPrompt += '\n\n$moodInstruction';
+    }
+    systemPrompt += '\n\n【冲突表达边界】对事情可以失望或不满，但不能给用户贴人格或智力标签，不能辱骂。';
     // 预防复读最近高频表达，但不屏蔽角色名与人设中的必要称呼
     final memberRecent = [
       for (final m in context.reversed)
@@ -913,7 +962,16 @@ class ChatMessages extends AsyncNotifier<ChatState> {
               .chat(profile, history, systemPrompt: systemPrompt)
               .timeout(const Duration(seconds: 45))) {
         full += chunk;
-        _patch(messageId, _cleanReply(full, member.displayName));
+        if (showPartial && !containsPersonalAttack(full)) {
+          var visible = full;
+          if (endsWithPersonalAttackPrefix(full)) {
+            final runes = full.runes.toList();
+            visible = String.fromCharCodes(
+              runes.take((runes.length - 1).clamp(0, runes.length)),
+            );
+          }
+          _patch(messageId, _cleanReply(visible, member.displayName));
+        }
       }
     } catch (e) {
       final detail = e.toString();
@@ -929,6 +987,28 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     if (!profile.allowActions) {
       final stripped = stripActions(full);
       if (stripped.isNotEmpty) full = stripped;
+    }
+    if (containsPersonalAttack(full)) {
+      try {
+        var rewritten = '';
+        await for (final chunk
+            in ref
+                .read(llmServiceProvider)
+                .chat(
+                  profile,
+                  history,
+                  systemPrompt:
+                      '$systemPrompt\n\n【重新生成】上一份回复包含针对人的贬低用词。重新回答用户当前问题，只针对事情表达，不评价对方本人。',
+                )
+                .timeout(const Duration(seconds: 45))) {
+          rewritten += chunk;
+        }
+        full = containsPersonalAttack(rewritten)
+            ? '这件事让我有些失望，我想先缓一缓，之后再好好说。'
+            : _cleanReply(rewritten, member.displayName);
+      } catch (_) {
+        full = '这件事让我有些失望，我想先缓一缓，之后再好好说。';
+      }
     }
 
     // 复读自检：比较最近回复的整体相似度，并检查该角色全会话历史中的段落
@@ -1065,6 +1145,9 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     }
 
     // Apply the final cleanup after streaming the answer.
+    if (containsPersonalAttack(full)) {
+      full = '这件事让我有些失望，我想先缓一缓，之后再好好说。';
+    }
     _patch(messageId, full);
     return full;
   }
@@ -1398,6 +1481,15 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     await ref.read(aiProfileProvider(conversationId).notifier).ensureLoaded();
     final profile = ref.read(aiProfileProvider(conversationId));
     if (index < -1 || index >= profile.scenes.length) return;
+    if (index >= 0 && profile.scenes[index].name.contains('争吵')) {
+      await ref.read(moodProvider(conversationId).notifier).ensureLoaded();
+      if (!canEnterConflictScene(
+        ref.read(moodProvider(conversationId)),
+        profile.affinity,
+      )) {
+        return;
+      }
+    }
     await ref
         .read(aiProfileProvider(conversationId).notifier)
         .setSceneIndex(index);

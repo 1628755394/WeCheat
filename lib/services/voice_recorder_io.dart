@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:record/record.dart';
+import 'package:path/path.dart' as p;
 
 import 'voice_recorder.dart';
 
@@ -14,8 +15,10 @@ class VoiceRecorderImpl implements VoiceRecorder {
   Future<bool> start() async {
     try {
       if (!await _recorder.hasPermission()) return false;
-      _path =
-          '${Directory.systemTemp.path}\\wecheat_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      _path = p.join(
+        Directory.systemTemp.path,
+        'wecheat_voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+      );
       await _recorder.start(
         const RecordConfig(encoder: AudioEncoder.aacLc),
         path: _path!,

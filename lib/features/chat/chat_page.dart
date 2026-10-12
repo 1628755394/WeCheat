@@ -19,9 +19,12 @@ import '../../models/contact.dart';
 import '../../models/conversation.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/ai_profile_provider.dart';
 import '../../providers/contact_override_provider.dart';
 import '../../providers/conversation_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/mood_provider.dart';
+import '../../models/mood_state.dart';
 import '../../repositories/mock_data.dart';
 import '../../services/voice_recorder.dart';
 import '../conversation/conversation_page.dart';
@@ -1089,6 +1092,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final contact = conversation?.contact;
     final isAi = contact?.isAi ?? false;
     final isGroup = contact?.isGroup ?? false;
+    final mood = ref.watch(moodProvider(widget.conversationId));
+    final affinity = ref
+        .watch(aiProfileProvider(widget.conversationId))
+        .affinity;
     final me = ref.watch(currentUserProvider);
 
     // 群聊标题带人数；生成中显示「xx 正在输入…」
@@ -1102,7 +1109,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ? (isGroup && (speaker?.isNotEmpty ?? false)
               ? '$speaker 正在输入…'
               : '对方正在输入…')
-        : baseTitle;
+        : '$baseTitle${isAi && mood.zone(affinity) != MoodZone.calm ? ' ${mood.emoji}' : ''}';
 
     return Scaffold(
       backgroundColor: AppColors.chatBg,

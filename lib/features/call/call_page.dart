@@ -15,10 +15,12 @@ import '../../models/ai_profile.dart';
 import '../../models/conversation.dart';
 import '../../models/message.dart';
 import '../../providers/ai_profile_provider.dart';
+import '../../providers/mood_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/call_performance_provider.dart';
 import '../../providers/conversation_provider.dart';
 import '../../services/ai_prompt.dart';
+import '../../services/mood_policy.dart';
 import '../../services/stt_service.dart';
 import '../../services/tts_service.dart';
 import '../../services/voice_api_client.dart';
@@ -99,7 +101,6 @@ class _CallPageState extends ConsumerState<CallPage> {
   bool _modelPending = false;
   int _idleNudgeIndex = 0;
   VirtualActor? _actor;
-  String _observedAiText = '';
 
   bool get _voiceOn => ref.read(outputModeProvider).speaks;
   bool _showInput = false;
@@ -174,6 +175,7 @@ class _CallPageState extends ConsumerState<CallPage> {
     await ref
         .read(aiProfileProvider(widget.conversationId).notifier)
         .ensureLoaded();
+    await ref.read(moodProvider(widget.conversationId).notifier).ensureLoaded();
     if (!mounted || _status == _CallStatus.ended) return;
     if (_isAi && widget.isVideo) unawaited(_initCamera());
     if (_isAi) {
@@ -344,6 +346,17 @@ class _CallPageState extends ConsumerState<CallPage> {
     if (_aiSpeaking) await _interruptAiSpeech();
     if (!mounted || _status != _CallStatus.connected) return;
     final turn = ++_turnGeneration;
+    final moodNotifier = ref.read(moodProvider(widget.conversationId).notifier);
+    final turnProfile = ref.read(aiProfileProvider(widget.conversationId));
+    await moodNotifier.onUserMessage(
+      negative:
+          affinityGain(
+            userContent,
+            turnProfile.likes,
+            dislikes: turnProfile.dislikes,
+          ) <
+          0,
+    );
 
     // 检查是否已经有相同的用户输入（避免重复添加）
     final lastEntry = _history.isNotEmpty ? _history.last : null;
@@ -358,12 +371,9 @@ class _CallPageState extends ConsumerState<CallPage> {
       _captions.add(caption);
       _aiSpeaking = true;
     });
-    _observedAiText = '';
     _scrollCaptionsToEnd();
 
     var full = '';
-    var pending = '';
-    var firstSegment = true;
     try {
       final profile = ref.read(aiProfileProvider(widget.conversationId));
       await for (final chunk
@@ -372,32 +382,12 @@ class _CallPageState extends ConsumerState<CallPage> {
               .chat(
                 profile,
                 _history,
-                systemPrompt: buildAiSystemPrompt(
-                  profile,
-                  userText: userContent,
-                  inCall: true,
-                  styleInHistory: _hasStyleTurns,
-                ),
+                systemPrompt:
+                    '${buildAiSystemPrompt(profile, userText: userContent, inCall: true, styleInHistory: _hasStyleTurns)}\n${getMoodInstruction(ref.read(moodProvider(widget.conversationId)), profile.affinity)}\n只针对事情表达不满，不贬低用户本人。',
               )
               .timeout(const Duration(seconds: 45))) {
         if (_status == _CallStatus.ended || turn != _turnGeneration) return;
         full += chunk;
-        if (full.length - _observedAiText.length >= 16) {
-          _observedAiText = full;
-          _actor?.hearAi(full);
-        }
-        pending += chunk;
-        caption.text = stripActions(full);
-        if (mounted) setState(() {});
-        _scrollCaptionsToEnd();
-        var boundary = _speechBoundary(pending, first: firstSegment);
-        while (boundary != null) {
-          final sentence = pending.substring(0, boundary);
-          pending = pending.substring(boundary);
-          if (_voiceOn) _queueSpeech(sentence, turn);
-          firstSegment = false;
-          boundary = _speechBoundary(pending, first: firstSegment);
-        }
       }
     } catch (error) {
       if (turn != _turnGeneration) return;
@@ -415,8 +405,13 @@ class _CallPageState extends ConsumerState<CallPage> {
       _actor?.stopSpeech();
       return;
     }
+    if (containsPersonalAttack(full)) {
+      full = await _regenerateSafeCallReply(userContent);
+    }
+    if (turn != _turnGeneration || _status == _CallStatus.ended) return;
+    setState(() => caption.text = stripActions(full));
+    _scrollCaptionsToEnd();
     _actor?.hearAi(full);
-    if (pending.trim().isNotEmpty && _voiceOn) _queueSpeech(pending, turn);
 
     // 明确要求复述/照说时允许重复；普通回复才执行静默重试。
     final cleanFull = stripActions(full).trim();
@@ -438,7 +433,10 @@ class _CallPageState extends ConsumerState<CallPage> {
       return;
     }
 
+    if (_voiceOn) _queueSpeech(full, turn);
+
     _history.add((role: 'assistant', content: full));
+    await moodNotifier.onReply(turnProfile.affinity);
     unawaited(_saveCallCaption(caption));
     await _speechQueue;
     if (mounted && turn == _turnGeneration) {
@@ -466,31 +464,17 @@ class _CallPageState extends ConsumerState<CallPage> {
     _scrollCaptionsToEnd();
 
     var full = '';
-    var pending = '';
-    var firstSegment = true;
     try {
       final profile = ref.read(aiProfileProvider(widget.conversationId));
       // 使用更强的防复读提示
       final enhancedPrompt =
-          '${buildAiSystemPrompt(profile, userText: userContent, inCall: true, styleInHistory: _hasStyleTurns)}\n\n【重要】不要重复你刚才说过的话，也不要复制之前的回复内容。';
+          '${buildAiSystemPrompt(profile, userText: userContent, inCall: true, styleInHistory: _hasStyleTurns)}\n${getMoodInstruction(ref.read(moodProvider(widget.conversationId)), profile.affinity)}\n只针对事情表达不满，不贬低用户本人。\n\n【重要】不要重复你刚才说过的话，也不要复制之前的回复内容。';
       await for (final chunk
           in ref
               .read(llmServiceProvider)
               .chat(profile, _history, systemPrompt: enhancedPrompt)) {
         if (_status == _CallStatus.ended || turn != _turnGeneration) return;
         full += chunk;
-        pending += chunk;
-        caption.text = stripActions(full);
-        if (mounted) setState(() {});
-        _scrollCaptionsToEnd();
-        var boundary = _speechBoundary(pending, first: firstSegment);
-        while (boundary != null) {
-          final sentence = pending.substring(0, boundary);
-          pending = pending.substring(boundary);
-          if (_voiceOn) _queueSpeech(sentence, turn);
-          firstSegment = false;
-          boundary = _speechBoundary(pending, first: firstSegment);
-        }
       }
     } catch (error) {
       if (turn != _turnGeneration) return;
@@ -506,15 +490,50 @@ class _CallPageState extends ConsumerState<CallPage> {
       _actor?.stopSpeech();
       return;
     }
+    if (containsPersonalAttack(full)) {
+      full = await _regenerateSafeCallReply(userContent);
+    }
+    if (turn != _turnGeneration || _status == _CallStatus.ended) return;
+    setState(() => caption.text = stripActions(full));
+    _scrollCaptionsToEnd();
     _actor?.hearAi(full);
-    if (pending.trim().isNotEmpty && _voiceOn) _queueSpeech(pending, turn);
+    if (_voiceOn) _queueSpeech(full, turn);
     _history.add((role: 'assistant', content: full));
+    await ref
+        .read(moodProvider(widget.conversationId).notifier)
+        .onReply(ref.read(aiProfileProvider(widget.conversationId)).affinity);
     unawaited(_saveCallCaption(caption));
     await _speechQueue;
     if (mounted && turn == _turnGeneration) {
       setState(() => _aiSpeaking = false);
       _actor?.stopSpeech();
     }
+  }
+
+  Future<String> _regenerateSafeCallReply(String userContent) async {
+    const fallback = '这件事让我有些失望，我想先缓一缓。';
+    try {
+      final profile = ref.read(aiProfileProvider(widget.conversationId));
+      var rewritten = '';
+      await for (final chunk in ref
+          .read(llmServiceProvider)
+          .chat(
+            profile,
+            _history,
+            systemPrompt:
+                '${buildAiSystemPrompt(profile, userText: userContent, inCall: true, styleInHistory: _hasStyleTurns)}\n${getMoodInstruction(ref.read(moodProvider(widget.conversationId)), profile.affinity)}\n上一版回复包含人身贬低。重新回答当前问题，只针对事情表达情绪，绝不评价或辱骂用户本人。',
+          )
+          .timeout(const Duration(seconds: 45))) {
+        rewritten += chunk;
+      }
+      if (rewritten.trim().isNotEmpty &&
+          !containsPersonalAttack(rewritten)) {
+        return rewritten;
+      }
+    } catch (error) {
+      debugPrint('Call safe reply regeneration failed: $error');
+    }
+    return fallback;
   }
 
   /// 重复检测：检查文本是否与最近回复过于相似
@@ -550,23 +569,6 @@ class _CallPageState extends ConsumerState<CallPage> {
       bigrams.add(String.fromCharCodes(runes.sublist(i, i + 2)));
     }
     return bigrams;
-  }
-
-  int? _speechBoundary(String text, {required bool first}) {
-    final sentence = RegExp(r'[。！？!?；;\n]').firstMatch(text);
-    if (!first) return sentence?.end;
-    if (sentence != null &&
-        text.substring(0, sentence.end).runes.length <= 24) {
-      return sentence.end;
-    }
-    final pause = RegExp(r'[，、,:：]').firstMatch(text);
-    if (pause != null) {
-      final length = text.substring(0, pause.end).runes.length;
-      if (length >= 6 && length <= 24) return pause.end;
-    }
-    final runes = text.runes.toList();
-    if (runes.length < 24) return null;
-    return String.fromCharCodes(runes.take(24)).length;
   }
 
   void _queueSpeech(String sentence, int turn) {

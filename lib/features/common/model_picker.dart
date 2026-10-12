@@ -100,6 +100,19 @@ Future<ModelChoice?> showModelPicker(
                 ),
               ),
               const _Header('本地模型（Ollama）'),
+              if (!canOpenCcSwitch)
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.lan),
+                  title: const Text('连接电脑上的 Ollama'),
+                  subtitle: const Text('iPhone / iPad 填写电脑局域网地址'),
+                  onTap: () async {
+                    final choice = await _showLanOllamaDialog(sheetContext);
+                    if (choice != null && sheetContext.mounted) {
+                      Navigator.pop(sheetContext, choice);
+                    }
+                  },
+                ),
               ListTile(
                 title: const Text('使用默认模型'),
                 subtitle: const Text(OllamaService.defaultModel),
@@ -163,11 +176,7 @@ Future<ModelChoice?> showModelPicker(
                   if (!snapshot.hasData) return const _Hint('加载中…');
                   final providers = snapshot.data!.items!;
                   if (providers.isEmpty) {
-                    return _Hint(
-                      canOpenCcSwitch
-                          ? '未读取到服务商，可先点上方「打开 cc-switch」检查配置'
-                          : '未找到服务商配置，先运行 tool\\export_ccswitch.ps1',
-                    );
+                    return _Hint(ccSwitchEmptyHint);
                   }
                   return Column(
                     children: [
@@ -252,6 +261,86 @@ bool _isCurrent(ModelChoice c, String provider, String baseUrl, String model) =>
         (c.model.isEmpty &&
             provider == 'ollama' &&
             model == OllamaService.defaultModel));
+
+Future<ModelChoice?> _showLanOllamaDialog(BuildContext context) {
+  final controller = TextEditingController();
+  return showDialog<ModelChoice>(
+    context: context,
+    builder: (dialogContext) => WeChatDialog(
+      title: const Text('连接电脑上的 Ollama'),
+      content: TextField(
+        controller: controller,
+        decoration: const InputDecoration(
+          labelText: 'Ollama 地址',
+          hintText: 'http://192.168.1.10:11434',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () async {
+            final url = controller.text.trim();
+            final uri = Uri.tryParse(url);
+            if (uri == null ||
+                !{'http', 'https'}.contains(uri.scheme) ||
+                !uri.hasAuthority) {
+              return;
+            }
+            try {
+              final models = await OllamaService(baseUrl: url).listModels();
+              if (!dialogContext.mounted) return;
+              if (models.isEmpty) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('未发现模型，请检查电脑服务和局域网地址')),
+                );
+                return;
+              }
+              final selected = await showDialog<String>(
+                context: dialogContext,
+                builder: (selectContext) => WeChatDialog(
+                  title: const Text('选择 Ollama 模型'),
+                  content: SizedBox(
+                    width: 320,
+                    height: 300,
+                    child: ListView(
+                      children: [
+                        for (final model in models.toSet())
+                          ListTile(
+                            title: Text(model),
+                            onTap: () => Navigator.pop(selectContext, model),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+              if (selected != null && dialogContext.mounted) {
+                Navigator.pop(
+                  dialogContext,
+                  ModelChoice(
+                    provider: 'ollama',
+                    baseUrl: url,
+                    model: selected,
+                  ),
+                );
+              }
+            } catch (_) {
+              if (dialogContext.mounted) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('连接失败，请检查电脑 Ollama 和网络地址')),
+                );
+              }
+            }
+          },
+          child: const Text('检索模型'),
+        ),
+      ],
+    ),
+  );
+}
 
 /// 手动密钥表单：协议 + Base URL + API Key + 模型名
 Future<ModelChoice?> _showCustomKeyDialog(BuildContext context) {

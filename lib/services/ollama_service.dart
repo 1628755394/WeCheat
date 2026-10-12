@@ -5,8 +5,10 @@ import 'package:http/http.dart' as http;
 
 /// 本地 Ollama 服务：直连 127.0.0.1:11434，无后端中转
 class OllamaService {
-  static const _endpoint = 'http://127.0.0.1:11434/api/chat';
-  static const _tagsEndpoint = 'http://127.0.0.1:11434/api/tags';
+  OllamaService({String baseUrl = 'http://127.0.0.1:11434'})
+    : baseUrl = baseUrl.replaceFirst(RegExp(r'/+$'), '');
+
+  final String baseUrl;
   static const defaultModel = 'qwen3:8b';
 
   static const _systemPrompt = '你是微信里的 AI 助手，用简洁的中文回答用户的问题。';
@@ -16,7 +18,7 @@ class OllamaService {
   /// 列出本机已安装的模型名
   Future<List<String>> listModels() async {
     final response = await _client
-        .get(Uri.parse(_tagsEndpoint))
+        .get(Uri.parse('$baseUrl/api/tags'))
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) return const [];
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -31,7 +33,7 @@ class OllamaService {
     List<({String role, String content})> history,
     String? systemPrompt,
   ) {
-    final request = http.Request('POST', Uri.parse(_endpoint))
+    final request = http.Request('POST', Uri.parse('$baseUrl/api/chat'))
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
         'model': model,

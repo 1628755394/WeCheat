@@ -43,7 +43,10 @@ class LlmService {
         systemPrompt: systemPrompt,
       );
     }
-    return _ollama.chat(
+    final local = profile.baseUrl.trim().isEmpty
+        ? _ollama
+        : OllamaService(baseUrl: profile.baseUrl);
+    return local.chat(
       history,
       systemPrompt: systemPrompt,
       model: profile.model,

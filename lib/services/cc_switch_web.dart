@@ -23,5 +23,6 @@ Future<List<CcProvider>> loadCcProviders() async {
 
 /// Web 端无法启动本地应用
 const bool canOpenCcSwitch = false;
+const String ccSwitchEmptyHint = '未找到服务商配置，请先运行 tool\\export_ccswitch.ps1';
 
 Future<bool> openCcSwitchApp() async => false;

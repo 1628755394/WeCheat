@@ -11,11 +11,13 @@ import 'package:wecheat/models/ai_profile.dart';
 import 'package:wecheat/models/contact.dart';
 import 'package:wecheat/models/conversation.dart';
 import 'package:wecheat/models/message.dart';
+import 'package:wecheat/models/mood_state.dart';
 import 'package:wecheat/providers/ai_profile_provider.dart';
 import 'package:wecheat/providers/chat_provider.dart';
 import 'package:wecheat/providers/contact_override_provider.dart';
 import 'package:wecheat/providers/conversation_provider.dart';
 import 'package:wecheat/providers/output_mode_provider.dart';
+import 'package:wecheat/providers/mood_provider.dart';
 import 'package:wecheat/providers/user_provider.dart';
 import 'package:wecheat/services/llm_service.dart';
 import 'package:wecheat/services/ollama_service.dart';
@@ -75,6 +77,12 @@ class _Output extends OutputModeNotifier {
   OutputMode build() => OutputMode.text;
 }
 
+class _Mood extends MoodNotifier {
+  _Mood(super.id);
+  @override
+  MoodState build() => MoodState();
+}
+
 class _Profile extends AiProfileNotifier {
   _Profile(super.id);
   int deleted = 0;
@@ -120,6 +128,7 @@ ProviderContainer _container({LlmService? llm}) => ProviderContainer(
     outputModeProvider.overrideWith(_Output.new),
     for (final id in ['a', 'b'])
       aiProfileProvider(id).overrideWith(() => _Profile(id)),
+    for (final id in ['a', 'b']) moodProvider(id).overrideWith(() => _Mood(id)),
   ],
 );
 

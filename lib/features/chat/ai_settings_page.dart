@@ -16,6 +16,9 @@ import 'writing_assistant_page.dart';
 import 'expression_settings_page.dart';
 import 'live2d_model_tile.dart';
 import 'custom_actions_page.dart';
+import 'mood_debug_page.dart';
+import '../../providers/mood_provider.dart';
+import '../../services/mood_policy.dart';
 
 /// AI 设置页：角色人设 / 知识库 / 聊天记录样本（风格模仿）
 class AiSettingsPage extends ConsumerWidget {
@@ -28,6 +31,7 @@ class AiSettingsPage extends ConsumerWidget {
     final profile = ref.watch(aiProfileProvider(conversationId));
     final notifier = ref.read(aiProfileProvider(conversationId).notifier);
     final conversationRules = conversationRulesFor(profile);
+    final mood = ref.watch(moodProvider(conversationId));
 
     return Scaffold(
       backgroundColor: AppColors.searchBg,
@@ -65,6 +69,21 @@ class AiSettingsPage extends ConsumerWidget {
                 onTap: () => _pickModel(context, ref, profile),
               ),
             ),
+            if (const bool.fromEnvironment('dart.vm.product') == false)
+              Material(
+                color: Colors.white,
+                child: ListTile(
+                  leading: const Icon(Icons.tune),
+                  title: const Text('情绪调试'),
+                  subtitle: const Text('查看 V-A 状态与预览回复规则'),
+                  onTap: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          MoodDebugPage(conversationId: conversationId),
+                    ),
+                  ),
+                ),
+              ),
             const _SectionHeader('视频通话'),
             Material(
               color: Colors.white,
@@ -347,6 +366,16 @@ class AiSettingsPage extends ConsumerWidget {
                               )
                             : null,
                         onTap: () {
+                          if (i != profile.sceneIndex &&
+                              profile.scenes[i].name.contains('争吵') &&
+                              !canEnterConflictScene(mood, profile.affinity)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('争吵剧情需要好感达到 70，且正处于赌气状态'),
+                              ),
+                            );
+                            return;
+                          }
                           ref
                               .read(
                                 chatMessagesProvider(conversationId).notifier,

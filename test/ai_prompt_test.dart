@@ -97,7 +97,8 @@ void main() {
     expect(character.knowledge, isNotEmpty);
     expect(character.likes, isNotEmpty);
     expect(character.dislikes, isNotEmpty);
-    expect(character.scenes, hasLength(2));
+    expect(character.scenes, hasLength(3));
+    expect(character.scenes.last.name, contains('争吵'));
     expect(prompt, contains('【当前对话规则】'));
     expect(prompt, contains('当前消息优先'));
     expect(prompt, contains('不得复用本会话中该角色之前说过的完整句子或段落'));
