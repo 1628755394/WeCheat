@@ -24,4 +24,4 @@ samples, guidance on mobile development, and a full API reference.
 
 ## 情绪参数
 
-「AI 设置 → 情绪参数」可以查看 valence、arousal、最近事件和表达分区，拖动滑块预览好感与情绪组合。调试版和 Release 版均显示入口；调整后的角色状态写入设备本地 Hive。
+调试运行时，「AI 设置 → 情绪参数」可查看 valence、arousal、最近事件和表达分区，并拖动滑块预览好感与情绪组合。Release 包保留自动情绪规则，不显示参数面板；角色状态写入设备本地 Hive。

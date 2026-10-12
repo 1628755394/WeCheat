@@ -69,20 +69,22 @@ class AiSettingsPage extends ConsumerWidget {
                 onTap: () => _pickModel(context, ref, profile),
               ),
             ),
-            Material(
-              color: Colors.white,
-              child: ListTile(
-                leading: const Icon(Icons.tune, color: AppColors.primary),
-                title: const Text('情绪参数'),
-                subtitle: const Text('查看情绪状态、调整参数与预览回复规则'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute(
-                    builder: (_) => MoodDebugPage(conversationId: conversationId),
+            if (!const bool.fromEnvironment('dart.vm.product'))
+              Material(
+                color: Colors.white,
+                child: ListTile(
+                  leading: const Icon(Icons.tune, color: AppColors.primary),
+                  title: const Text('情绪参数'),
+                  subtitle: const Text('查看情绪状态、调整参数与预览回复规则'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          MoodDebugPage(conversationId: conversationId),
+                    ),
                   ),
                 ),
               ),
-            ),
             const _SectionHeader('视频通话'),
             Material(
               color: Colors.white,
