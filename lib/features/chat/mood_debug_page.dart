@@ -27,7 +27,7 @@ class _MoodDebugPageState extends ConsumerState<MoodDebugPage> {
     final instruction = getMoodInstruction(mood, affinity);
     final notifier = ref.read(moodProvider(widget.conversationId).notifier);
     return Scaffold(
-      appBar: AppBar(title: const Text('情绪调试')),
+      appBar: AppBar(title: const Text('情绪参数')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
