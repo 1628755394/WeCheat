@@ -11,6 +11,9 @@ class CcProvider {
   final String apiKey;
   final String model;
 
+  /// Configured model names available under this provider.
+  final List<String> models;
+
   /// 导出文件里可显式指定协议，覆盖下面的启发式推断
   final String? protocolOverride;
 
@@ -21,6 +24,7 @@ class CcProvider {
     required this.baseUrl,
     required this.apiKey,
     required this.model,
+    this.models = const [],
     this.protocolOverride,
   });
 
@@ -31,17 +35,31 @@ class CcProvider {
     baseUrl: (m['baseUrl'] as String?) ?? '',
     apiKey: (m['apiKey'] as String?) ?? '',
     model: (m['model'] as String?) ?? '',
+    models: [
+      for (final value in (m['models'] as List? ?? const []))
+        if (value is String && value.trim().isNotEmpty) value.trim(),
+    ],
     protocolOverride: (m['protocol'] as String?),
   );
 
   /// claude 系走 Anthropic Messages；gpt/codex 系模型走 OpenAI Responses
   /// （cc-switch 里的 Codex 渠道即使 appType 标 claude 也只支持 Responses API）
-  String get protocol {
+  String get protocol => protocolForModel(model);
+
+  String protocolForModel(String selectedModel) {
     if (protocolOverride != null && protocolOverride!.isNotEmpty) {
       return protocolOverride!;
     }
-    if (RegExp(r'^(gpt|codex|o\d)').hasMatch(model)) return 'responses';
-    if (RegExp(r'^(deepseek|qwen|glm|kimi|moonshot|doubao)').hasMatch(model)) {
+    if (RegExp(
+      r'^(gpt|codex|o\d)',
+      caseSensitive: false,
+    ).hasMatch(selectedModel)) {
+      return 'responses';
+    }
+    if (RegExp(
+      r'^(deepseek|qwen|glm|kimi|moonshot|doubao)',
+      caseSensitive: false,
+    ).hasMatch(selectedModel)) {
       return 'openai';
     }
     if (appType.toLowerCase().contains('codex')) return 'responses';
@@ -115,6 +133,24 @@ CcProvider? parseCcProvider(
         ]) ??
         configValue('model') ??
         '';
+    final models = <String>{};
+    void addModel(Object? value) {
+      if (value is String && value.trim().isNotEmpty) models.add(value.trim());
+    }
+
+    addModel(model);
+    for (final key in const [
+      'ANTHROPIC_MODEL',
+      'ANTHROPIC_DEFAULT_SONNET_MODEL',
+      'ANTHROPIC_DEFAULT_OPUS_MODEL',
+      'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+      'OPENAI_MODEL',
+    ]) {
+      addModel(env?[key]);
+      addModel(auth?[key]);
+    }
+    addModel(config['model']);
+    if (providerConfig is Map) addModel(providerConfig['model']);
     final wireApi = configValue('wire_api');
     if (base == null || key == null) return null;
     return CcProvider(
@@ -124,6 +160,7 @@ CcProvider? parseCcProvider(
       baseUrl: base,
       apiKey: key,
       model: model,
+      models: models.toList(),
       protocolOverride: wireApi == 'chat' ? 'openai' : wireApi,
     );
   } catch (_) {

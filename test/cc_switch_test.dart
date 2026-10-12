@@ -86,4 +86,23 @@ wire_api = 'chat'
     expect(provider!.protocol, 'anthropic');
     expect(provider.model, 'claude-sonnet');
   });
+
+  test('collects configured model variants without duplicates', () {
+    final provider = parseCcProvider(
+      'id',
+      'Claude',
+      'claude',
+      jsonEncode({
+        'env': {
+          'ANTHROPIC_BASE_URL': 'https://example.invalid',
+          'ANTHROPIC_AUTH_TOKEN': 'secret',
+          'ANTHROPIC_MODEL': 'claude-sonnet',
+          'ANTHROPIC_DEFAULT_SONNET_MODEL': 'claude-sonnet',
+          'ANTHROPIC_DEFAULT_OPUS_MODEL': 'claude-opus',
+        },
+      }),
+    );
+    expect(provider!.models, ['claude-sonnet', 'claude-opus']);
+    expect(provider.protocolForModel('claude-opus'), 'anthropic');
+  });
 }

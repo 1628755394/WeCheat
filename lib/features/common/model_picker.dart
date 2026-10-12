@@ -52,161 +52,193 @@ Future<ModelChoice?> showModelPicker(
 ) {
   // Attach error handlers before the sheet's opening animation builds its
   // FutureBuilders; an offline service can fail immediately.
-  final localModels = Future.sync(
-    () => ref.read(ollamaServiceProvider).listModels(),
-  ).catchError((Object _) => <String>[]);
-  final providers = Future.sync(ref.read(ccProvidersLoaderProvider))
-      .timeout(const Duration(seconds: 10))
-      .then<({List<CcProvider>? items, Object? error})>(
-        (items) => (items: items, error: null),
-        onError: (Object error) => (items: null, error: error),
-      );
+  Future<List<String>> scanLocal() =>
+      Future.sync(() => ref.read(ollamaServiceProvider).listModels())
+          .timeout(const Duration(seconds: 10))
+          .catchError((Object _) => <String>[]);
+  Future<({List<CcProvider>? items, Object? error})> scanProviders() =>
+      Future.sync(ref.read(ccProvidersLoaderProvider))
+          .timeout(const Duration(seconds: 10))
+          .then<({List<CcProvider>? items, Object? error})>(
+            (items) => (items: items, error: null),
+            onError: (Object error) => (items: null, error: error),
+          );
+  var localModels = scanLocal();
+  var providers = scanProviders();
   return showModalBottomSheet<ModelChoice>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
-        ),
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 18, 16, 8),
-              child: Text(
-                '选择模型',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 18, 16, 8),
+                child: Text(
+                  '选择模型',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+                ),
               ),
-            ),
-            const _Header('本地模型（Ollama）'),
-            ListTile(
-              title: const Text('使用默认模型'),
-              subtitle: const Text(OllamaService.defaultModel),
-              onTap: () => Navigator.pop(sheetContext, const ModelChoice()),
-            ),
-            FutureBuilder<List<String>>(
-              future: localModels,
-              builder: (context, snapshot) {
-                final models = snapshot.data ?? const <String>[];
-                if (snapshot.hasError || (snapshot.hasData && models.isEmpty)) {
-                  return const _Hint('无法获取模型列表，请确认 Ollama 正在运行');
-                }
-                if (!snapshot.hasData) {
-                  return const _Hint('加载中…');
-                }
-                return Column(
-                  children: [
-                    for (final m in models)
-                      ListTile(
-                        dense: true,
-                        title: Text(m, style: const TextStyle(fontSize: 15)),
-                        trailing: _isCurrent(current, 'ollama', '', m)
-                            ? const Icon(
-                                Icons.check,
-                                color: AppColors.primary,
-                                size: 20,
-                              )
-                            : null,
-                        onTap: () => Navigator.pop(
-                          sheetContext,
-                          ModelChoice(provider: 'ollama', model: m),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                child: FilledButton.icon(
+                  onPressed: () => setSheetState(() {
+                    localModels = scanLocal();
+                    providers = scanProviders();
+                  }),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('检索本地和 cc-switch 模型'),
+                ),
+              ),
+              const _Header('本地模型（Ollama）'),
+              ListTile(
+                title: const Text('使用默认模型'),
+                subtitle: const Text(OllamaService.defaultModel),
+                onTap: () => Navigator.pop(sheetContext, const ModelChoice()),
+              ),
+              FutureBuilder<List<String>>(
+                future: localModels,
+                builder: (context, snapshot) {
+                  final models = snapshot.data ?? const <String>[];
+                  if (snapshot.hasError ||
+                      (snapshot.hasData && models.isEmpty)) {
+                    return const _Hint('无法获取模型列表，请确认 Ollama 正在运行');
+                  }
+                  if (!snapshot.hasData) {
+                    return const _Hint('加载中…');
+                  }
+                  return Column(
+                    children: [
+                      for (final m in models.toSet())
+                        ListTile(
+                          dense: true,
+                          title: Text(m, style: const TextStyle(fontSize: 15)),
+                          trailing: _isCurrent(current, 'ollama', '', m)
+                              ? const Icon(
+                                  Icons.check,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                )
+                              : null,
+                          onTap: () => Navigator.pop(
+                            sheetContext,
+                            ModelChoice(provider: 'ollama', model: m),
+                          ),
                         ),
-                      ),
-                  ],
-                );
-              },
-            ),
-            _Header(
-              'cc-switch 服务商',
-              action: TextButton(
-                onPressed: () async {
-                  final ok = await openCcSwitchApp();
-                  if (!ok && sheetContext.mounted) {
-                    ScaffoldMessenger.of(sheetContext).showSnackBar(
-                      const SnackBar(
-                        content: Text('未找到 cc-switch 应用或不受当前平台支持'),
-                      ),
+                    ],
+                  );
+                },
+              ),
+              _Header(
+                'cc-switch 服务商',
+                action: TextButton(
+                  onPressed: () async {
+                    final ok = await openCcSwitchApp();
+                    if (!ok && sheetContext.mounted) {
+                      ScaffoldMessenger.of(sheetContext).showSnackBar(
+                        const SnackBar(
+                          content: Text('未找到 cc-switch 应用或不受当前平台支持'),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('打开 cc-switch'),
+                ),
+              ),
+              FutureBuilder<({List<CcProvider>? items, Object? error})>(
+                future: providers,
+                builder: (context, snapshot) {
+                  if (snapshot.data?.error != null) {
+                    return const _Hint('服务商配置读取失败，请检查 cc-switch，或手动填写接口');
+                  }
+                  if (!snapshot.hasData) return const _Hint('加载中…');
+                  final providers = snapshot.data!.items!;
+                  if (providers.isEmpty) {
+                    return _Hint(
+                      canOpenCcSwitch
+                          ? '未读取到服务商，可先点上方「打开 cc-switch」检查配置'
+                          : '未找到服务商配置，先运行 tool\\export_ccswitch.ps1',
                     );
                   }
-                },
-                child: const Text('打开 cc-switch'),
-              ),
-            ),
-            FutureBuilder<({List<CcProvider>? items, Object? error})>(
-              future: providers,
-              builder: (context, snapshot) {
-                if (snapshot.data?.error != null) {
-                  return const _Hint('服务商配置读取失败，请检查 cc-switch，或手动填写接口');
-                }
-                if (!snapshot.hasData) return const _Hint('加载中…');
-                final providers = snapshot.data!.items!;
-                if (providers.isEmpty) {
-                  return _Hint(
-                    canOpenCcSwitch
-                        ? '未读取到服务商，可先点上方「打开 cc-switch」检查配置'
-                        : '未找到服务商配置，先运行 tool\\export_ccswitch.ps1',
+                  return Column(
+                    children: [
+                      for (final p in providers)
+                        for (final model
+                            in p.models.isNotEmpty
+                                ? p.models.toSet()
+                                : {p.model})
+                          ListTile(
+                            dense: true,
+                            title: Text(
+                              model.isEmpty ? p.name : model,
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                            subtitle: Text(
+                              '${p.name}（${p.appType}） · ${p.baseUrl}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            trailing:
+                                _isCurrent(
+                                  current,
+                                  p.protocolForModel(model),
+                                  p.baseUrl,
+                                  model,
+                                )
+                                ? const Icon(
+                                    Icons.check,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  )
+                                : null,
+                            onTap: model.isEmpty
+                                ? null
+                                : () => Navigator.pop(
+                                    sheetContext,
+                                    ModelChoice(
+                                      provider: p.protocolForModel(model),
+                                      baseUrl: p.baseUrl,
+                                      apiKey: p.apiKey,
+                                      model: model,
+                                      providerName: p.name,
+                                    ),
+                                  ),
+                          ),
+                    ],
                   );
-                }
-                return Column(
-                  children: [
-                    for (final p in providers)
-                      ListTile(
-                        dense: true,
-                        title: Text(
-                          '${p.name}（${p.appType}）',
-                          style: const TextStyle(fontSize: 15),
-                        ),
-                        subtitle: Text(
-                          '${p.model.isEmpty ? '未配置模型名' : p.model} · ${p.baseUrl}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        trailing:
-                            _isCurrent(current, p.protocol, p.baseUrl, p.model)
-                            ? const Icon(
-                                Icons.check,
-                                color: AppColors.primary,
-                                size: 20,
-                              )
-                            : null,
-                        onTap: () => Navigator.pop(
-                          sheetContext,
-                          ModelChoice(
-                            provider: p.protocol,
-                            baseUrl: p.baseUrl,
-                            apiKey: p.apiKey,
-                            model: p.model,
-                            providerName: p.name,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-            const _Header('自定义接口'),
-            ListTile(
-              dense: true,
-              leading: const Icon(Icons.key, color: AppColors.primary),
-              title: const Text(
-                '手动填写 Base URL + 密钥',
-                style: TextStyle(fontSize: 15),
+                },
               ),
-              onTap: () async {
-                final choice = await _showCustomKeyDialog(sheetContext);
-                if (choice != null && sheetContext.mounted) {
-                  Navigator.pop(sheetContext, choice);
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+              const _Header('自定义接口'),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.key, color: AppColors.primary),
+                title: const Text(
+                  '手动填写 Base URL + 密钥',
+                  style: TextStyle(fontSize: 15),
+                ),
+                onTap: () async {
+                  final choice = await _showCustomKeyDialog(sheetContext);
+                  if (choice != null && sheetContext.mounted) {
+                    Navigator.pop(sheetContext, choice);
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     ),
