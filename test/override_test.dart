@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:wecheat/models/ai_profile.dart';
 import 'package:wecheat/models/message.dart';
+import 'package:wecheat/models/conversation.dart';
+import 'package:wecheat/models/contact.dart';
 import 'package:wecheat/providers/ai_profile_provider.dart';
 import 'package:wecheat/providers/contact_override_provider.dart';
 import 'package:wecheat/providers/conversation_provider.dart';
@@ -33,21 +35,21 @@ void main() {
     final conv = container
         .read(resolvedConversationListProvider)
         .value!
-        .firstWhere((c) => c.id == 'conv_char_yujie');
-    expect(conv.contact.displayName, '沈曼殊');
+        .firstWhere((c) => c.id == 'conv_char_yarebede');
+    expect(conv.contact.displayName, '雅儿贝德');
 
     // 设置备注
     await container
         .read(contactOverridesProvider.notifier)
-        .setRemark(conv.contact, '曼殊姐');
+        .setRemark(conv.contact, '雅儿贝德大人');
 
     // 覆盖层变化应触发派生列表更新
     final updated = container
         .read(resolvedConversationListProvider)
         .value!
-        .firstWhere((c) => c.id == 'conv_char_yujie');
-    expect(updated.contact.remark, '曼殊姐');
-    expect(updated.contact.displayName, '曼殊姐');
+        .firstWhere((c) => c.id == 'conv_char_yarebede');
+    expect(updated.contact.remark, '雅儿贝德大人');
+    expect(updated.contact.displayName, '雅儿贝德大人');
   });
 
   test('清空备注恢复原名', () async {
@@ -55,11 +57,11 @@ void main() {
     final conv = container
         .read(resolvedConversationListProvider)
         .value!
-        .firstWhere((c) => c.id == 'conv_char_yujie');
+        .firstWhere((c) => c.id == 'conv_char_yarebede');
 
     await container
         .read(contactOverridesProvider.notifier)
-        .setRemark(conv.contact, '曼殊姐');
+        .setRemark(conv.contact, '雅儿贝德大人');
     await container
         .read(contactOverridesProvider.notifier)
         .setRemark(conv.contact, '');
@@ -67,8 +69,8 @@ void main() {
     final updated = container
         .read(resolvedConversationListProvider)
         .value!
-        .firstWhere((c) => c.id == 'conv_char_yujie');
-    expect(updated.contact.displayName, '沈曼殊');
+        .firstWhere((c) => c.id == 'conv_char_yarebede');
+    expect(updated.contact.displayName, '雅儿贝德');
   });
 
   test('新内置夏提雅会补种单聊资料与全员群成员', () async {
@@ -84,10 +86,67 @@ void main() {
     final albedoProfile =
         Hive.box('ai_profiles').get('conv_char_yarebede') as Map;
     expect(albedoProfile['allowActions'], isTrue);
-    final group = conversations.singleWhere(
-      (c) => c.id == 'conv_group_chars',
+    final group = conversations.singleWhere((c) => c.id == 'conv_group_chars');
+    expect(
+      group.members.any((member) => member.id == 'char_shalltear'),
+      isTrue,
     );
-    expect(group.members.any((member) => member.id == 'char_shalltear'), isTrue);
+  });
+
+  test('升级时删除旧内置角色及其消息和群成员', () async {
+    const oldContact = Contact(id: 'char_yujie', name: '旧角色', isAi: true);
+    final now = DateTime(2026, 10, 10);
+    final conversations = await Hive.openBox('conversations');
+    final messages = await Hive.openBox('messages');
+    final profiles = await Hive.openBox('ai_profiles');
+    final backgrounds = await Hive.openBox('chat_backgrounds');
+    final overrides = await Hive.openBox('contact_overrides');
+    await conversations.put(
+      'conv_char_yujie',
+      Conversation(
+        id: 'conv_char_yujie',
+        contact: oldContact,
+        lastMessage: '旧消息',
+        lastMessageTime: now,
+      ).toMap(),
+    );
+    await conversations.put(
+      'custom_group',
+      Conversation(
+        id: 'custom_group',
+        contact: const Contact(id: 'custom_group', name: '群', isGroup: true),
+        members: [oldContact],
+        lastMessage: '旧消息',
+        lastMessageTime: now,
+      ).toMap(),
+    );
+    await messages.put(
+      'old_message',
+      Message(
+        id: 'old_message',
+        conversationId: 'custom_group',
+        senderId: oldContact.id,
+        isMe: false,
+        type: MessageType.text,
+        content: '旧消息',
+        createdAt: now,
+      ).toMap(),
+    );
+    await profiles.put('conv_char_yujie', const AiProfile().toMap());
+    await backgrounds.put('conv_char_yujie', {'color': 0xFFFFFFFF});
+    await overrides.put(oldContact.id, oldContact.toMap());
+
+    await container.read(conversationListProvider.future);
+
+    expect(conversations.containsKey('conv_char_yujie'), isFalse);
+    expect(messages.containsKey('old_message'), isFalse);
+    expect(profiles.containsKey('conv_char_yujie'), isFalse);
+    expect(backgrounds.containsKey('conv_char_yujie'), isFalse);
+    expect(overrides.containsKey(oldContact.id), isFalse);
+    final group = Conversation.fromMap(
+      conversations.get('custom_group') as Map,
+    );
+    expect(group.members, isEmpty);
   });
 
   test('语音消息持久化原始文件名供转写使用', () {
@@ -119,7 +178,10 @@ void main() {
   test('导入克隆音色时保留已有 AI 资料', () async {
     final box = await Hive.openBox('ai_profiles');
     final initial = const AiProfile(persona: '既有人设', model: 'test-model')
-        .copyWith(transcriptionEndpoint: 'http://127.0.0.1:9000/v1/audio/transcriptions');
+        .copyWith(
+          transcriptionEndpoint:
+              'http://127.0.0.1:9000/v1/audio/transcriptions',
+        );
     await box.put('voice_test', initial.toMap());
     final bytes = Uint8List.fromList([1, 2, 3]);
     await container
@@ -143,8 +205,10 @@ void main() {
     await first.setColor(0xFFF4F0E8);
     await second.setImage(Uint8List.fromList([1, 2, 3]));
 
-    expect(container.read(chatBackgroundProvider('conv_a')).colorValue,
-        0xFFF4F0E8);
+    expect(
+      container.read(chatBackgroundProvider('conv_a')).colorValue,
+      0xFFF4F0E8,
+    );
     expect(container.read(chatBackgroundProvider('conv_a')).imageBytes, isNull);
     expect(container.read(chatBackgroundProvider('conv_b')).colorValue, isNull);
     expect(

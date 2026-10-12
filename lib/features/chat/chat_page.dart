@@ -98,7 +98,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _scrollController.addListener(() {
       if (!_scrollController.hasClients) return;
       final pos = _scrollController.position;
-      _nearBottom = pos.pixels < 120;
+      _nearBottom = pos.maxScrollExtent - pos.pixels < 120;
     });
   }
 
@@ -391,7 +391,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.jumpTo(0);
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
   }
@@ -1055,11 +1055,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             ),
     );
 
-    // 新消息到达必滚到底；流式更新中仅在用户本就在底部时跟随
+    // 在底部时跟随新消息；自己发送消息时也滚到底部。
     ref.listen(chatMessagesProvider(widget.conversationId), (prev, next) {
       final prevCount = prev?.value?.messages.length ?? 0;
-      final nextCount = next.value?.messages.length ?? 0;
-      if (nextCount > prevCount || _nearBottom) _scrollToBottom();
+      final nextMessages = next.value?.messages ?? const <Message>[];
+      final sentByMe =
+          nextMessages.length > prevCount && nextMessages.last.isMe;
+      if (_nearBottom || sentByMe) _scrollToBottom();
     });
     ref.listen(outputModeProvider, (previous, next) {
       if (!next.speaks) {
@@ -1302,12 +1304,10 @@ class _MessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       controller: scrollController,
-      reverse: true,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: messages.length,
-      itemBuilder: (context, reversedIndex) {
-        final index = messages.length - 1 - reversedIndex;
+      itemBuilder: (context, index) {
         final msg = messages[index];
         final showTime =
             index == 0 ||

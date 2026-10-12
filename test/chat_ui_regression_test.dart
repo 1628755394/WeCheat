@@ -209,6 +209,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(
+        tester.widget<ListView>(find.byType(ListView).first).reverse,
+        isFalse,
+      );
       expect(find.text('$id 消息 99'), findsOneWidget);
       expect(tester.takeException(), isNull);
     }
@@ -216,6 +220,7 @@ void main() {
     await open('a');
     await tester.drag(find.byType(ListView), const Offset(0, 500));
     await tester.pumpAndSettle();
+    expect(find.text('a 消息 99'), findsNothing);
     await open('b');
     await tester.pumpWidget(const SizedBox());
   });

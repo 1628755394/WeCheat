@@ -40,11 +40,11 @@ abstract final class MockData {
 
   /// AI 助手会话（单独抽出，老版本 Hive 数据升级时补种用）
   static Conversation aiConversation(DateTime now) => Conversation(
-        id: 'conv_ai',
-        contact: aiAssistant,
-        lastMessage: '你好，我是本地 AI 助手，有什么可以帮你？',
-        lastMessageTime: now.subtract(const Duration(minutes: 1)),
-      );
+    id: 'conv_ai',
+    contact: aiAssistant,
+    lastMessage: '你好，我是本地 AI 助手，有什么可以帮你？',
+    lastMessageTime: now.subtract(const Duration(minutes: 1)),
+  );
 
   /// 首次启动时的种子聊天记录：AI 助手问候 + 各角色开场白
   static Map<String, List<Message>> seedMessages() {
@@ -69,39 +69,38 @@ abstract final class MockData {
   /// 朋友圈种子数据（AI 角色与我）
   static List<Moment> seedMoments() {
     final now = DateTime.now();
-    Contact byName(String name) =>
-        contacts.firstWhere((c) => c.name == name);
+    Contact byName(String name) => contacts.firstWhere((c) => c.name == name);
 
     return [
       Moment(
-        author: byName('温知夏'),
-        text: '新到的豆子烘好了，店里有桂花香',
+        author: byName('雅儿贝德'),
+        text: '纳萨力克的夜色很安静，适合陪安兹大人聊一会儿。',
         images: const ['assets/moments/p1.jpg', 'assets/moments/p2.jpg'],
         createdAt: now.subtract(const Duration(minutes: 40)),
-        likes: const ['小满', '苏小禾'],
-        comments: const ['小满: 姐姐给我留一杯！'],
+        likes: const ['夏提雅·布拉德弗伦'],
+        comments: const ['宝青坊主: 夜里说话，倒也不坏。'],
       ),
       Moment(
-        author: byName('陈野'),
-        text: '今天三分球 12 中 9，状态火热',
+        author: byName('夏提雅·布拉德弗伦'),
+        text: '今天也完成了训练，随时听候安兹大人的命令！',
         createdAt: now.subtract(const Duration(hours: 2)),
-        likes: const ['宋温暖'],
+        likes: const ['雅儿贝德'],
       ),
       Moment(
-        author: byName('顾千歌'),
+        author: byName('宝青坊主'),
         images: const [
           'assets/moments/p4.jpg',
           'assets/moments/p5.jpg',
           'assets/moments/p6.jpg',
         ],
         createdAt: now.subtract(const Duration(days: 1, hours: 3)),
-        comments: const ['许清欢: 拍得不错'],
+        comments: const ['雅儿贝德: 很有品味。'],
       ),
       Moment(
         author: me,
         text: '新项目上线倒计时，加油',
         createdAt: now.subtract(const Duration(days: 2)),
-        likes: const ['宋温暖', '苏小禾'],
+        likes: const ['雅儿贝德', '宝青坊主'],
       ),
     ];
   }
