@@ -46,7 +46,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (_scanned || !mounted) return;
     _scanned = true;
     // 随机扫出一个 AI 角色的名片
-    final chars = AiCharacters.all;
+    final chars = AiCharacters.all
+        .where((c) => !AiCharacters.deletedFriends().contains(c.contact.id))
+        .toList();
     final contact = chars[Random().nextInt(chars.length)].contact;
     await showDialog(
       context: context,

@@ -31,7 +31,9 @@ class _ShakePageState extends ConsumerState<ShakePage> {
       _resultName = null;
     });
     await Future.delayed(const Duration(milliseconds: 900));
-    final chars = AiCharacters.all;
+    final chars = AiCharacters.all
+        .where((c) => !AiCharacters.deletedFriends().contains(c.contact.id))
+        .toList();
     final c = chars[Random().nextInt(chars.length)];
     String? convId;
     for (final conv in ref.read(conversationListProvider).value ?? const []) {

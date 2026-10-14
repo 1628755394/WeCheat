@@ -85,6 +85,8 @@ class DiscoverPage extends StatelessWidget {
               LayoutBuilder(
                 builder: (context, constraints) => CharacterGalleryGrid(
                   characters: AiCharacters.all
+                      .where((c) =>
+                          !AiCharacters.deletedFriends().contains(c.contact.id))
                       .take(constraints.maxWidth >= 600 ? 2 : 1)
                       .toList(),
                 ),

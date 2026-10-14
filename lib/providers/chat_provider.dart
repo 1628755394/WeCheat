@@ -248,7 +248,7 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     return '';
   }
 
-  /// 按 senderId 找发言成员；单聊兜底回会话联系人（历史消息 senderId 统一是 'ai_assistant'）
+  /// 按 senderId 找发言成员；单聊兜底回会话联系人
   Contact? _memberOf(String senderId) {
     final conv = _conversation;
     if (conv == null) return null;

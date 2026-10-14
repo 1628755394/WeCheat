@@ -23,10 +23,6 @@ class ConversationRepository {
       final seeds = MockData.seedConversations();
       await _box!.putAll({for (final c in seeds) c.id: c.toMap()});
     }
-    // 老版本数据迁移：补种 AI 助手会话
-    if (!_box!.containsKey('conv_ai')) {
-      await _box!.put('conv_ai', MockData.aiConversation(DateTime.now()).toMap());
-    }
     // 清理旧版 Mock 假人会话（AI 会话与用户自建数据保留）
     await _box!.deleteAll(_legacyIds.where(_box!.containsKey));
     final msgBox = await Hive.openBox('messages');
@@ -80,6 +76,9 @@ class ConversationRepository {
 
   Future<void> save(Conversation conversation) =>
       _box!.put(conversation.id, conversation.toMap());
+
+  Future<void> deleteFriend(Conversation conversation) =>
+      AiCharacters.deleteFriend(conversation);
 
   Future<void> saveAll(Iterable<Conversation> conversations) => _box!.putAll(
         {for (final c in conversations) c.id: c.toMap()},

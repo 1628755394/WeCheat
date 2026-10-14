@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'core/theme.dart';
+import 'core/constants.dart';
 import 'router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    systemNavigationBarColor: AppColors.navBarBg,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  ));
   await Hive.initFlutter();
   runApp(const ProviderScope(child: WeCheatApp()));
 }

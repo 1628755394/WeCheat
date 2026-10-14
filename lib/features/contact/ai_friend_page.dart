@@ -162,6 +162,38 @@ class AiFriendPage extends ConsumerWidget {
                 child: const Text('发消息', style: TextStyle(fontSize: 16)),
               ),
             ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final delete = await showDialog<bool>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('删除好友'),
+                      content: Text('删除 ${contact.displayName} 及其聊天记录和角色资料？'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, false),
+                          child: const Text('取消'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, true),
+                          child: const Text('删除'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (delete != true || !context.mounted) return;
+                  await ref
+                      .read(conversationListProvider.notifier)
+                      .deleteFriend(conv);
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+                icon: const Icon(Icons.person_remove_outlined),
+                label: const Text('删除好友'),
+              ),
+            ),
           ],
         ],
       ),

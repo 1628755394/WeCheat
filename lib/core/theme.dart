@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:forui/forui.dart';
 
 import 'constants.dart';
@@ -28,6 +29,12 @@ ThemeData buildAppTheme() {
     fontFamily: 'Microsoft YaHei',
     fontFamilyFallback: const ['PingFang SC', 'Noto Sans CJK SC'],
     appBarTheme: const AppBarTheme(
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: AppColors.navBarBg,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       elevation: 0,

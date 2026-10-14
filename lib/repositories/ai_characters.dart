@@ -69,18 +69,63 @@ class AiCharacter {
 
 abstract final class AiCharacters {
   static const groupConversationId = 'conv_group_chars';
-  static const _removedIds = <String>{
-    'yujie',
-    'luoli',
-    'bingjiao',
-    'jiexiaozi',
-    'shaofu',
-    'linjia',
-    'baiyueguang',
-    'aojiao',
-    'dikong',
-    'meihuo',
+  static const _migrationKey = 'retain_four_characters_v2';
+  static const _deletedFriendsKey = 'deleted_ai_friends';
+  static const _allowedIds = <String>{
+    'fengbaobao',
+    'shalltear',
+    'yarebede',
+    'baoqingfangzhu',
   };
+
+  static Set<String> deletedFriends() {
+    if (!Hive.isBoxOpen('data_migrations')) return {};
+    return (Hive.box('data_migrations').get(_deletedFriendsKey) as List?)
+            ?.cast<String>()
+            .toSet() ??
+        {};
+  }
+
+  static Future<void> deleteFriend(Conversation conversation) async {
+    if (!conversation.contact.isAi || conversation.contact.isGroup) return;
+    final convBox = await Hive.openBox('conversations');
+    final msgBox = await Hive.openBox('messages');
+    final migrations = await Hive.openBox('data_migrations');
+    final deleted = deletedFriends()..add(conversation.contact.id);
+    await migrations.put(_deletedFriendsKey, deleted.toList());
+    await convBox.delete(conversation.id);
+    for (final key in convBox.keys.toList()) {
+      final raw = convBox.get(key);
+      if (raw is! Map) continue;
+      final group = Conversation.fromMap(raw);
+      if (!group.contact.isGroup) continue;
+      final members = group.members
+          .where((member) => member.id != conversation.contact.id)
+          .toList();
+      if (members.length != group.members.length) {
+        await convBox.put(key, group.copyWith(members: members).toMap());
+      }
+    }
+    await msgBox.deleteAll([
+      for (final key in msgBox.keys)
+        if (msgBox.get(key) case final Map raw)
+          if (raw['conversationId'] == conversation.id ||
+              raw['senderId'] == conversation.contact.id)
+            key,
+    ]);
+    for (final boxName in ['ai_profiles', 'chat_backgrounds', 'mood_states']) {
+      final box = await Hive.openBox(boxName);
+      await box.delete(conversation.id);
+    }
+    final overrides = await Hive.openBox('contact_overrides');
+    await overrides.delete(conversation.contact.id);
+    final tags = await Hive.openBox('contact_tags');
+    for (final key in tags.keys.toList()) {
+      final ids = (tags.get(key) as List?)?.cast<String>();
+      if (ids == null || !ids.contains(conversation.contact.id)) continue;
+      await tags.put(key, ids.where((id) => id != conversation.contact.id).toList());
+    }
+  }
   static const _previousAlbedoGreetings = {
     '（提起裙摆微微欠身，羽翼轻颤）大人，您来了。雅儿贝德恭候多时了。',
     '（她在王座前优雅地单膝跪下，羽翼微微舒展，抬眸望向您）恭迎安兹大人。纳萨力克一切安好……能再次见到您，雅儿贝德便已心满意足。今日的事务，请交给我处理。',
@@ -403,12 +448,54 @@ abstract final class AiCharacters {
     final msgBox = await Hive.openBox('messages');
     final profileBox = await Hive.openBox('ai_profiles');
     final migrations = await Hive.openBox('data_migrations');
-    if (migrations.get('retain_three_characters_v1') != true) {
-      final removedConversationIds = {
-        for (final id in _removedIds) 'conv_char_$id',
-      };
-      final removedContactIds = {for (final id in _removedIds) 'char_$id'};
-      await convBox.deleteAll(removedConversationIds);
+    if (migrations.get(_migrationKey) != true) {
+      final allowedContactIds = {for (final id in _allowedIds) 'char_$id'};
+      final removedConversationIds = <String>{};
+      final removedContactIds = <String>{};
+
+      // Remove every non-whitelisted AI conversation, including the old
+      // built-in roles, the standalone AI assistant and user-created AI chats.
+      for (final key in convBox.keys.toList()) {
+        final raw = convBox.get(key);
+        if (raw is! Map) continue;
+        final conversation = Conversation.fromMap(raw);
+        if (conversation.contact.isAi &&
+            !allowedContactIds.contains(conversation.contact.id)) {
+          removedConversationIds.add(conversation.id);
+          removedContactIds.add(conversation.contact.id);
+          await convBox.delete(key);
+        }
+      }
+
+      // Prune removed AI members from every group while preserving the group.
+      for (final key in convBox.keys.toList()) {
+        final raw = convBox.get(key);
+        if (raw is! Map) continue;
+        final conversation = Conversation.fromMap(raw);
+        if (!conversation.contact.isGroup) continue;
+        final members = conversation.members
+            .where((member) =>
+                !member.isAi || allowedContactIds.contains(member.id))
+            .toList();
+        if (members.length != conversation.members.length) {
+          await convBox.put(
+            key,
+            conversation
+                .copyWith(
+                  members: members,
+                  lastMessage: '',
+                )
+                .toMap(),
+          );
+        }
+        removedContactIds.addAll(
+          conversation.members
+              .where((member) =>
+                  member.isAi && !allowedContactIds.contains(member.id))
+              .map((member) => member.id),
+        );
+      }
+
       await profileBox.deleteAll(removedConversationIds);
       await msgBox.deleteAll([
         for (final key in msgBox.keys)
@@ -419,29 +506,25 @@ abstract final class AiCharacters {
       ]);
       final backgrounds = await Hive.openBox('chat_backgrounds');
       await backgrounds.deleteAll(removedConversationIds);
+      final moods = await Hive.openBox('mood_states');
+      await moods.deleteAll(removedConversationIds);
       final overrides = await Hive.openBox('contact_overrides');
       await overrides.deleteAll(removedContactIds);
-      for (final key in convBox.keys.toList()) {
-        final raw = convBox.get(key);
-        if (raw is! Map) continue;
-        final conversation = Conversation.fromMap(raw);
-        if (!conversation.contact.isGroup || conversation.members.isEmpty) {
-          continue;
-        }
-        final members = conversation.members
-            .where((member) => !removedContactIds.contains(member.id))
-            .toList();
-        if (members.length != conversation.members.length) {
-          await convBox.put(
-            key,
-            conversation.copyWith(members: members).toMap(),
-          );
-        }
+      final tags = await Hive.openBox('contact_tags');
+      for (final key in tags.keys.toList()) {
+        final ids = (tags.get(key) as List?)?.cast<String>();
+        if (ids == null) continue;
+        await tags.put(key, ids.where((id) => !removedContactIds.contains(id)).toList());
       }
-      await migrations.put('retain_three_characters_v1', true);
+      await migrations.put(_migrationKey, true);
     }
 
+    final deleted = deletedFriends();
     for (final c in all) {
+      if (deleted.contains(c.contact.id)) {
+        await convBox.delete(c.conversationId);
+        continue;
+      }
       if (!convBox.containsKey(c.conversationId)) {
         await convBox.put(c.conversationId, conversationOf(c, now).toMap());
       }
@@ -538,21 +621,31 @@ abstract final class AiCharacters {
         }
       }
     }
+    final activeContacts = [
+      for (final c in all)
+        if (!deleted.contains(c.contact.id)) c.contact,
+    ];
     if (!convBox.containsKey(groupConversationId)) {
-      await convBox.put(groupConversationId, groupConversation(now).toMap());
+      await convBox.put(
+        groupConversationId,
+        groupConversation(now).copyWith(members: activeContacts).toMap(),
+      );
     } else {
       // 群已存在：同步保留的内置角色和用户自行加入的成员
       final raw = convBox.get(groupConversationId);
       if (raw is Map) {
         final group = Conversation.fromMap(raw);
-        final missing = [
-          for (final c in all)
-            if (!group.members.any((m) => m.id == c.contact.id)) c.contact,
+        final missing = activeContacts
+            .where((contact) => !group.members.any((m) => m.id == contact.id))
+            .toList();
+        final members = [
+          ...group.members.where((m) => !deleted.contains(m.id)),
+          ...missing,
         ];
-        if (missing.isNotEmpty) {
+        if (members.length != group.members.length || missing.isNotEmpty) {
           await convBox.put(
             groupConversationId,
-            group.copyWith(members: [...group.members, ...missing]).toMap(),
+            group.copyWith(members: members).toMap(),
           );
         }
       }

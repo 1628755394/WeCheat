@@ -22,6 +22,9 @@ class _CharacterFeedPageState extends ConsumerState<CharacterFeedPage> {
   Widget build(BuildContext context) {
     final overrides = ref.watch(contactOverridesProvider);
     final characters = AiCharacters.all.where((character) {
+      if (AiCharacters.deletedFriends().contains(character.contact.id)) {
+        return false;
+      }
       final presentation = characterPresentation(character);
       final profile = ref.watch(aiProfileProvider(character.conversationId));
       final name = resolveContact(overrides, character.contact).displayName;

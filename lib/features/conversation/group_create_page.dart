@@ -39,7 +39,7 @@ class _GroupCreatePageState extends ConsumerState<GroupCreatePage> {
     _selected.addAll(widget.existing?.members ?? widget.initialSelected);
   }
 
-  /// 可选成员 = 所有 AI 好友（含内置 AI 助手），已选但不在列表里的也补上
+  /// 可选成员 = 所有 AI 好友，已选但不在列表里的也补上
   List<Contact> _candidates(List<Conversation> conversations) {
     final result = <Contact>[];
     final seen = <String>{};

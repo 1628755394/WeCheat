@@ -4,7 +4,7 @@ import '../models/message.dart';
 import '../models/moment.dart';
 import 'ai_characters.dart';
 
-/// Mock 数据源：当前用户 + 内置 AI 助手；AI 角色见 ai_characters.dart
+/// Mock 数据源：当前用户 + 四位内置 AI 角色
 abstract final class MockData {
   /// 当前登录用户（我）
   static const me = Contact(
@@ -15,53 +15,28 @@ abstract final class MockData {
     avatarAsset: 'assets/avatars/me.jpg',
   );
 
-  /// 本地 AI 助手（走 Ollama，不是真人会话）
-  static const aiAssistant = Contact(
-    id: 'ai_assistant',
-    name: 'AI 助手',
-    wechatId: 'wecheat_ai',
-    isAi: true,
-  );
-
-  /// 通讯录基础联系人：内置 AI 助手 + AI 角色（其余联系人都已清掉）
-  static final contacts = <Contact>[
-    aiAssistant,
-    for (final c in AiCharacters.all) c.contact,
+  /// 通讯录基础联系人
+  static List<Contact> get contacts => [
+    for (final c in AiCharacters.all)
+      if (!AiCharacters.deletedFriends().contains(c.contact.id)) c.contact,
   ];
 
   static List<Conversation> seedConversations() {
     final now = DateTime.now();
     return [
-      aiConversation(now),
-      for (final c in AiCharacters.all) AiCharacters.conversationOf(c, now),
-      AiCharacters.groupConversation(now),
+      for (final c in AiCharacters.all)
+        if (!AiCharacters.deletedFriends().contains(c.contact.id))
+          AiCharacters.conversationOf(c, now),
+      AiCharacters.groupConversation(now).copyWith(members: contacts),
     ];
   }
 
-  /// AI 助手会话（单独抽出，老版本 Hive 数据升级时补种用）
-  static Conversation aiConversation(DateTime now) => Conversation(
-    id: 'conv_ai',
-    contact: aiAssistant,
-    lastMessage: '你好，我是本地 AI 助手，有什么可以帮你？',
-    lastMessageTime: now.subtract(const Duration(minutes: 1)),
-  );
-
-  /// 首次启动时的种子聊天记录：AI 助手问候 + 各角色开场白
+  /// 首次启动时的种子聊天记录：各角色开场白
   static Map<String, List<Message>> seedMessages() {
     final now = DateTime.now();
     return {
-      'conv_ai': [
-        Message(
-          id: 'ai_m1',
-          conversationId: 'conv_ai',
-          senderId: 'ai_assistant',
-          isMe: false,
-          type: MessageType.text,
-          content: '你好，我是本地 AI 助手，有什么可以帮你？',
-          createdAt: now.subtract(const Duration(minutes: 1)),
-        ),
-      ],
       for (final c in AiCharacters.all)
+        if (!AiCharacters.deletedFriends().contains(c.contact.id))
         c.conversationId: [AiCharacters.greetingMessage(c, now)],
     };
   }

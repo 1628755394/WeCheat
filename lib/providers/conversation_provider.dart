@@ -33,6 +33,11 @@ class ConversationList extends AsyncNotifier<List<Conversation>> {
     return conversation.id;
   }
 
+  Future<void> deleteFriend(Conversation conversation) async {
+    await _repo.deleteFriend(conversation);
+    state = AsyncData(_repo.loadAll());
+  }
+
   /// 更新群成员（群聊加人/减人），并按成员名重新生成默认群名
   Future<void> updateMembers(
       String conversationId, List<Contact> members) async {

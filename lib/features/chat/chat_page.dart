@@ -268,7 +268,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           .firstOrNull;
                       final profileId = conversation?.contact.isAi == true
                           ? widget.conversationId
-                          : memberConversation?.id ?? 'conv_ai';
+                          : memberConversation?.id ?? widget.conversationId;
                       showDialog<void>(
                         context: context,
                         builder: (_) => MessageTranslationDialog(
@@ -1502,7 +1502,8 @@ class _MessageRow extends StatelessWidget {
         }
       }
     }
-    final face = sender ?? conversation?.contact ?? MockData.aiAssistant;
+    final face = sender ?? conversation?.contact ??
+        const Contact(id: 'unknown', name: '未知联系人');
 
     final bubble = Flexible(
       child: Column(
