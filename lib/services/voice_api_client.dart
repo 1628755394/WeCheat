@@ -91,8 +91,8 @@ class VoiceApiClient {
         : prefix.endsWith('/api')
         ? '$prefix/v1'
         : '$prefix/api/v1';
-    final suffix = path.startsWith('/api/v1') ? path.substring(7) : path;
-    return base.replace(path: '$apiRoot$suffix', query: null, fragment: null);
+    final fullPath = path.startsWith('/api/v1/') ? path : '$apiRoot$path';
+    return base.replace(path: fullPath, query: null, fragment: null);
   }
 
   Map<String, String> get _headers => {
@@ -219,13 +219,16 @@ class VoiceApiClient {
   }
 
   WebSocketChannel connectVoiceSession(VoiceSessionInfo session) {
+    return WebSocketChannel.connect(voiceSessionUri(session));
+  }
+
+  Uri voiceSessionUri(VoiceSessionInfo session) {
     final api = _uri(session.path);
     final scheme = api.scheme == 'https' ? 'wss' : 'ws';
-    final uri = api.replace(
+    return api.replace(
       scheme: scheme,
       queryParameters: {'session_id': session.id, 'ticket': session.ticket},
     );
-    return WebSocketChannel.connect(uri);
   }
 
   Future<void> endVoiceSession(String sessionId) async {

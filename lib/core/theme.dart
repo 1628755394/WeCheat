@@ -1,6 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
 
 import 'constants.dart';
+
+/// ForUI tokens shared by the mobile navigation, lists and controls.
+final appForuiTheme = FThemeData(
+  touch: true,
+  colors: FTheme.neutral.light.touch.colors.copyWith(
+    primary: AppColors.primary,
+    primaryForeground: Colors.white,
+    background: Colors.white,
+    card: Colors.white,
+    border: AppColors.divider,
+    muted: AppColors.searchBg,
+    mutedForeground: AppColors.textSecondary,
+  ),
+);
 
 ThemeData buildAppTheme() {
   return ThemeData(
@@ -9,20 +24,20 @@ ThemeData buildAppTheme() {
       seedColor: AppColors.primary,
       primary: AppColors.primary,
     ),
-    scaffoldBackgroundColor: Colors.white,
+    scaffoldBackgroundColor: AppColors.canvas,
     fontFamily: 'Microsoft YaHei',
     fontFamilyFallback: const ['PingFang SC', 'Noto Sans CJK SC'],
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.navBarBg,
+      backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0.5,
       shadowColor: AppColors.divider,
       centerTitle: true,
       titleTextStyle: TextStyle(
-        color: Colors.black87,
+        color: AppColors.ink,
         fontSize: 17,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
       ),
       iconTheme: IconThemeData(color: Colors.black87),
       actionsIconTheme: IconThemeData(color: Colors.black87),
@@ -36,7 +51,7 @@ ThemeData buildAppTheme() {
       backgroundColor: AppColors.navBarBg,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderRadius: BorderRadius.all(Radius.circular(18)),
       ),
       titleTextStyle: TextStyle(
         fontSize: 18,
@@ -54,7 +69,7 @@ ThemeData buildAppTheme() {
       surfaceTintColor: Colors.transparent,
       constraints: BoxConstraints(maxWidth: 640),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       clipBehavior: Clip.antiAlias,
     ),
@@ -74,13 +89,13 @@ ThemeData buildAppTheme() {
         foregroundColor: Colors.white,
         minimumSize: const Size(88, 44),
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
     inputDecorationTheme: const InputDecorationTheme(

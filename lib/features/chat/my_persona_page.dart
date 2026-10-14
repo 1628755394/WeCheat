@@ -1,6 +1,7 @@
 import '../../core/widgets/app_page_body.dart';
 
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart' show FTile, FTileGroup;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
@@ -27,66 +28,59 @@ class MyPersonaPage extends ConsumerWidget {
         child: ListView(
           children: [
             const _Header('我是谁'),
-            Material(
-              color: Colors.white,
-              child: Column(
-                children: [
-                  ListTile(
-                    title: const Text('我的人设', style: TextStyle(fontSize: 16)),
-                    subtitle: Text(
-                      profile.userPersona.isEmpty
-                          ? '未设置：告诉 TA 你的名字、身份、习惯'
-                          : profile.userPersona,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
+            FTileGroup(
+              children: [
+                FTile(
+                  title: const Text('我的人设'),
+                  subtitle: Text(
+                    profile.userPersona.isEmpty
+                        ? '未设置：告诉 TA 你的名字、身份、习惯'
+                        : profile.userPersona,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
                       color: AppColors.textSecondary,
                     ),
-                    onTap: () => _edit(
-                      context,
-                      title: '我的人设',
-                      initial: profile.userPersona,
-                      hint: '例：我叫阿哲，计算机系大四，加班狗，爱熬夜打代码',
-                      onSave: notifier.setUserPersona,
-                    ),
                   ),
-                  const Divider(indent: 16, height: 1),
-                  ListTile(
-                    title: const Text(
-                      '我们的关系与经历',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    subtitle: Text(
-                      profile.relationship.isEmpty
-                          ? '未设置：你们怎么认识的、一起经历过什么'
-                          : profile.relationship,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () => _edit(
+                    context,
+                    title: '我的人设',
+                    initial: profile.userPersona,
+                    hint: '例：我叫阿哲，计算机系大四，加班狗，爱熬夜打代码',
+                    onSave: notifier.setUserPersona,
+                  ),
+                ),
+                FTile(
+                  title: const Text('我们的关系与经历'),
+                  subtitle: Text(
+                    profile.relationship.isEmpty
+                        ? '未设置：你们怎么认识的、一起经历过什么'
+                        : profile.relationship,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
                       color: AppColors.textSecondary,
                     ),
-                    onTap: () => _edit(
-                      context,
-                      title: '我们的关系与经历',
-                      initial: profile.relationship,
-                      hint: '例：我们是高中同桌，大学异地三年，去年她表白我拒绝了，现在是暧昧期',
-                      onSave: notifier.setRelationship,
-                    ),
                   ),
-                ],
-              ),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () => _edit(
+                    context,
+                    title: '我们的关系与经历',
+                    initial: profile.relationship,
+                    hint: '例：我们是高中同桌，大学异地三年，去年她表白我拒绝了，现在是暧昧期',
+                    onSave: notifier.setRelationship,
+                  ),
+                ),
+              ],
             ),
             _Header(
               'TA 的喜好词（聊到涨好感 · 当前 ${profile.affinity}% · ${relationshipStageForUser(profile)}）',

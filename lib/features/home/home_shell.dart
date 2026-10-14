@@ -31,12 +31,10 @@ class HomeShell extends ConsumerWidget {
                   selectedIndex: navigationShell.currentIndex,
                   onSelect: (index) => navigationShell.goBranch(
                     index,
-                    initialLocation:
-                        index == navigationShell.currentIndex,
+                    initialLocation: index == navigationShell.currentIndex,
                   ),
                 ),
-                const VerticalDivider(
-                    width: 0.5, color: AppColors.divider),
+                const VerticalDivider(width: 0.5, color: AppColors.divider),
                 Expanded(child: navigationShell),
               ],
             ),
@@ -45,54 +43,100 @@ class HomeShell extends ConsumerWidget {
 
         return Scaffold(
           body: navigationShell,
-          bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.divider, width: 0.5)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: navigationShell.currentIndex,
-          onTap: (index) => navigationShell.goBranch(
-            index,
-            // 重复点击当前 Tab 回到该分支初始页面
-            initialLocation: index == navigationShell.currentIndex,
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Container(
+              height: 58,
+              decoration: const BoxDecoration(
+                color: AppColors.navBarBg,
+                border: Border(
+                  top: BorderSide(color: AppColors.divider, width: 0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  _MobileTab(
+                    icon: _BadgeIcon(
+                      icon: navigationShell.currentIndex == 0
+                          ? Icons.chat_bubble
+                          : Icons.chat_bubble_outline,
+                      count: unread,
+                    ),
+                    label: '微信',
+                    selected: navigationShell.currentIndex == 0,
+                    onTap: () => navigationShell.goBranch(0,
+                        initialLocation: navigationShell.currentIndex == 0),
+                  ),
+                  _MobileTab(
+                    icon: const Icon(Icons.contacts_outlined),
+                    label: '通讯录',
+                    selected: navigationShell.currentIndex == 1,
+                    onTap: () => navigationShell.goBranch(1,
+                        initialLocation: navigationShell.currentIndex == 1),
+                  ),
+                  _MobileTab(
+                    icon: const Icon(Icons.explore_outlined),
+                    label: '发现',
+                    selected: navigationShell.currentIndex == 2,
+                    onTap: () => navigationShell.goBranch(2,
+                        initialLocation: navigationShell.currentIndex == 2),
+                  ),
+                  _MobileTab(
+                    icon: const Icon(Icons.person_outline),
+                    label: '我',
+                    selected: navigationShell.currentIndex == 3,
+                    onTap: () => navigationShell.goBranch(3,
+                        initialLocation: navigationShell.currentIndex == 3),
+                  ),
+                ],
+              ),
+            ),
           ),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppColors.navBarBg,
-          elevation: 0,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: Colors.black87,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          items: [
-            BottomNavigationBarItem(
-              icon: _BadgeIcon(
-                  icon: Icons.chat_bubble_outline, count: unread),
-              activeIcon: _BadgeIcon(
-                  icon: Icons.chat_bubble, count: unread),
-              label: '微信',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.contacts_outlined),
-              activeIcon: Icon(Icons.contacts),
-              label: '通讯录',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.explore_outlined),
-              activeIcon: Icon(Icons.explore),
-              label: '发现',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: '我',
-            ),
-          ],
-        ),
-      ),
         );
       },
     );
   }
+}
+
+class _MobileTab extends StatelessWidget {
+  const _MobileTab({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Widget icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconTheme(
+            data: IconThemeData(
+              color: selected ? AppColors.primary : Colors.black87,
+              size: 27,
+            ),
+            child: icon,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: selected ? AppColors.primary : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _BadgeIcon extends StatelessWidget {

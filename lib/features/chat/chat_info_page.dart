@@ -2,6 +2,7 @@ import '../../core/widgets/app_page_body.dart';
 import '../../core/widgets/wechat_dialog.dart';
 
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart' show FTile, FTileGroup;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -177,76 +178,72 @@ class ChatInfoPage extends ConsumerWidget {
                 ),
               ),
             const SizedBox(height: 8),
-            Material(
-              color: Colors.white,
-              child: Column(
-                children: [
-                  if (contact != null)
-                    ListTile(
-                      title: Text(
-                        isGroup ? '群聊名称' : '设置备注和标签',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            contact.remark ?? '',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.chevron_right,
+            FTileGroup(
+              children: [
+                if (contact != null)
+                  FTile(
+                    title: Text(
+                      isGroup ? '群聊名称' : '设置备注和标签',
+                    ),
+                    suffix: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          contact.remark ?? '',
+                          style: const TextStyle(
+                            fontSize: 15,
                             color: AppColors.textSecondary,
                           ),
-                        ],
-                      ),
-                      onTap: () => _editRemark(context, ref, contact),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textSecondary,
+                        ),
+                      ],
                     ),
-                  const Divider(indent: 16, height: 1),
-                  ListTile(
-                    title: const Text('查找聊天记录', style: TextStyle(fontSize: 16)),
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                      color: AppColors.textSecondary,
-                    ),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ChatSearchPage(conversationId: conversationId),
-                      ),
+                    onPress: () => _editRemark(context, ref, contact),
+                  ),
+                FTile(
+                  title: const Text('查找聊天记录'),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ChatSearchPage(conversationId: conversationId),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             // AI 会话专属：人设/知识库/聊天记录设置
             if (contact?.isAi ?? false) ...[
               const SizedBox(height: 8),
-              Material(
-                color: Colors.white,
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.smart_toy_outlined,
-                    color: AppColors.primary,
-                  ),
-                  title: const Text('AI 设置', style: TextStyle(fontSize: 16)),
-                  subtitle: const Text(
-                    '人设、知识库、聊天记录风格',
-                    style: TextStyle(
-                      fontSize: 12,
+              FTileGroup(
+                children: [
+                  FTile(
+                    prefix: const Icon(
+                      Icons.smart_toy_outlined,
+                      color: AppColors.primary,
+                    ),
+                    title: const Text('AI 设置'),
+                    subtitle: const Text(
+                      '人设、知识库、聊天记录风格',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    suffix: const Icon(
+                      Icons.chevron_right,
                       color: AppColors.textSecondary,
                     ),
+                    onPress: () => context.push('/chat/$conversationId/ai'),
                   ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: AppColors.textSecondary,
-                  ),
-                  onTap: () => context.push('/chat/$conversationId/ai'),
-                ),
+                ],
               ),
             ],
             const SizedBox(height: 8),

@@ -1,6 +1,7 @@
 import '../../core/widgets/wechat_dialog.dart';
 
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart' show FTile, FTileGroup;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -75,75 +76,70 @@ class AiFriendPage extends ConsumerWidget {
           _Card('开场白', profile.greeting.isEmpty ? '未设置' : profile.greeting),
           const SizedBox(height: 8),
           if (conv != null) ...[
-            Material(
-              color: Colors.white,
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(
-                      Icons.favorite_border,
-                      color: Colors.redAccent,
-                    ),
-                    title: const Text('TA 的心声', style: TextStyle(fontSize: 16)),
-                    subtitle: const Text(
-                      '看看 TA 此刻心里在想什么',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                      color: AppColors.textSecondary,
-                    ),
-                    onTap: () => _showInnerVoice(context, ref, conv.id),
+            FTileGroup(
+              children: [
+                FTile(
+                  prefix: const Icon(
+                    Icons.favorite_border,
+                    color: Colors.redAccent,
                   ),
-                  const Divider(indent: 56, height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.book, color: AppColors.primary),
-                    title: const Text('TA 的日记', style: TextStyle(fontSize: 16)),
-                    subtitle: Text(
-                      profile.diaries.isEmpty
-                          ? '还没有日记，进去让 TA 写一篇'
-                          : '共 ${profile.diaries.length} 篇 · 最新：${profile.diaries.last.split('|').first}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
+                  title: const Text('TA 的心声'),
+                  subtitle: const Text(
+                    '看看 TA 此刻心里在想什么',
+                    style: TextStyle(
+                      fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AiDiaryPage(
-                          conversationId: conv.id,
-                          name: contact.displayName,
-                        ),
+                  ),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () => _showInnerVoice(context, ref, conv.id),
+                ),
+                FTile(
+                  prefix: const Icon(Icons.book, color: AppColors.primary),
+                  title: const Text('TA 的日记'),
+                  subtitle: Text(
+                    profile.diaries.isEmpty
+                        ? '还没有日记，进去让 TA 写一篇'
+                        : '共 ${profile.diaries.length} 篇 · 最新：${profile.diaries.last.split('|').first}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AiDiaryPage(
+                        conversationId: conv.id,
+                        name: contact.displayName,
                       ),
                     ),
                   ),
-                  const Divider(indent: 56, height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.tune, color: AppColors.primary),
-                    title: const Text('AI 设置', style: TextStyle(fontSize: 16)),
-                    subtitle: const Text(
-                      '模型、知识库、聊天记录风格',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
+                ),
+                FTile(
+                  prefix: const Icon(Icons.tune, color: AppColors.primary),
+                  title: const Text('AI 设置'),
+                  subtitle: const Text(
+                    '模型、知识库、聊天记录风格',
+                    style: TextStyle(
+                      fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
-                    onTap: () => context.push('/chat/${conv.id}/ai'),
                   ),
-                ],
-              ),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () => context.push('/chat/${conv.id}/ai'),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             Padding(

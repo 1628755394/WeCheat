@@ -1,6 +1,7 @@
 import '../../core/widgets/app_page_body.dart';
 
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart' show FTile, FTileGroup;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -24,90 +25,76 @@ class ProfilePage extends ConsumerWidget {
       body: AppPageBody(
         child: ListView(
           children: [
-            Material(
-              color: Colors.white,
-              child: Column(
-                children: [
-                  ListTile(
-                    title: const Text('头像'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppAvatar(contact: me, size: 56),
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.textSecondary,
-                        ),
-                      ],
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    onTap: () => _pickAvatar(context, ref),
-                  ),
-                  const Divider(indent: 16),
-                  ListTile(
-                    title: const Text('名字'),
-                    trailing: _valueWithChevron(me.name),
-                    onTap: () => _editField(
-                      context,
-                      ref,
-                      '名字',
-                      me.name,
-                      (v) => ref.read(currentUserProvider.notifier).setName(v),
-                    ),
-                  ),
-                  const Divider(indent: 16),
-                  ListTile(
-                    title: const Text('微信号'),
-                    trailing: Text(
-                      me.wechatId,
-                      style: const TextStyle(
+            FTileGroup(
+              children: [
+                FTile(
+                  title: const Text('头像'),
+                  suffix: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppAvatar(contact: me, size: 56),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.chevron_right,
                         color: AppColors.textSecondary,
-                        fontSize: 15,
                       ),
+                    ],
+                  ),
+                  onPress: () => _pickAvatar(context, ref),
+                ),
+                FTile(
+                  title: const Text('名字'),
+                  suffix: _valueWithChevron(me.name),
+                  onPress: () => _editField(
+                    context,
+                    ref,
+                    '名字',
+                    me.name,
+                    (v) => ref.read(currentUserProvider.notifier).setName(v),
+                  ),
+                ),
+                FTile(
+                  title: const Text('微信号'),
+                  suffix: Text(
+                    me.wechatId,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 15,
                     ),
                   ),
-                  const Divider(indent: 16),
-                  ListTile(
-                    title: const Text('二维码名片'),
-                    trailing: _valueWithChevron('', icon: Icons.qr_code_2),
-                    onTap: () => context.push('/qr-card'),
-                  ),
-                ],
-              ),
+                ),
+                FTile(
+                  title: const Text('二维码名片'),
+                  suffix: _valueWithChevron('', icon: Icons.qr_code_2),
+                  onPress: () => context.push('/qr-card'),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
-            Material(
-              color: Colors.white,
-              child: Column(
-                children: [
-                  const ListTile(
-                    title: Text('更多信息'),
-                    trailing: Icon(
-                      Icons.chevron_right,
-                      color: AppColors.textSecondary,
-                    ),
+            FTileGroup(
+              children: [
+                FTile(
+                  title: const Text('更多信息'),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
                   ),
-                  const Divider(indent: 16),
-                  ListTile(
-                    title: const Text('地区'),
-                    trailing: _valueWithChevron(
-                      me.region.isEmpty ? '未设置' : me.region,
-                    ),
-                    onTap: () => _editField(
-                      context,
-                      ref,
-                      '地区',
-                      me.region,
-                      (v) =>
-                          ref.read(currentUserProvider.notifier).setRegion(v),
-                    ),
+                ),
+                FTile(
+                  title: const Text('地区'),
+                  suffix: _valueWithChevron(
+                    me.region.isEmpty ? '未设置' : me.region,
                   ),
-                ],
-              ),
+                  onPress: () => _editField(
+                    context,
+                    ref,
+                    '地区',
+                    me.region,
+                    (v) =>
+                        ref.read(currentUserProvider.notifier).setRegion(v),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

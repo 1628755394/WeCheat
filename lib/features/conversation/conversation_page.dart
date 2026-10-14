@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
-import '../../core/widgets/output_mode_button.dart';
 import '../../models/conversation.dart';
 import '../../providers/conversation_provider.dart';
 import '../contact/add_ai_friend_page.dart';
@@ -16,7 +15,6 @@ class ConversationPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final unread = ref.watch(totalUnreadProvider);
     final wide =
         MediaQuery.sizeOf(context).width >= AppDimens.desktopBreakpoint;
 
@@ -35,14 +33,7 @@ class ConversationPage extends ConsumerWidget {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(unread > 0 ? '微信($unread)' : '微信'),
-        actions: const [OutputModeButton(), ConversationAddButton()],
-      ),
-      // 窄屏的 + 菜单在 AppBar，栏内不重复显示
-      body: const ConversationListPane(showAddButton: false),
-    );
+    return const Scaffold(body: ConversationListPane());
   }
 }
 
@@ -51,32 +42,21 @@ class ConversationListPane extends ConsumerWidget {
   /// 当前打开的会话 id（宽屏下高亮选中行）
   final String? selectedId;
 
-  /// 栏内是否显示 + 菜单按钮（窄屏时按钮在 AppBar 上）
-  final bool showAddButton;
-
-  const ConversationListPane({
-    super.key,
-    this.selectedId,
-    this.showAddButton = true,
-  });
+  const ConversationListPane({super.key, this.selectedId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conversations = ref.watch(resolvedConversationListProvider);
-
+    final desktop =
+        MediaQuery.sizeOf(context).width >= AppDimens.desktopBreakpoint;
     return ColoredBox(
-      color: Colors.white,
+      color: desktop ? AppColors.desktopList : Colors.white,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 6, 0, 2),
-            child: Row(
-              children: [
-                const Expanded(child: _SearchBar()),
-                if (showAddButton) const ConversationAddButton(),
-              ],
-            ),
-          ),
+          if (desktop)
+            const _DesktopListToolbar()
+          else
+            const _MobileListToolbar(),
           Expanded(
             child: RefreshIndicator(
               color: AppColors.primary,
@@ -101,7 +81,9 @@ class ConversationListPane extends ConsumerWidget {
 
 /// 右上角 + 菜单：发起群聊 / 添加朋友 / 扫一扫 / 收付款（AppBar 与 PC 栏头共用）
 class ConversationAddButton extends StatelessWidget {
-  const ConversationAddButton({super.key});
+  final bool dense;
+
+  const ConversationAddButton({super.key, this.dense = false});
 
   static PopupMenuItem<String> _menuItem(
     String value,
@@ -164,17 +146,108 @@ class ConversationAddButton extends StatelessWidget {
   }
 }
 
+class _DesktopListToolbar extends StatelessWidget {
+  const _DesktopListToolbar();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 60,
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    decoration: const BoxDecoration(
+      color: AppColors.desktopList,
+      border: Border(bottom: BorderSide(color: Color(0xFFD8D8D8), width: 0.5)),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            onTap: () => context.push('/discover/search'),
+            borderRadius: BorderRadius.circular(5),
+            child: Container(
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.searchBg,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: const Row(
+                children: [
+                  SizedBox(width: 9),
+                  Icon(Icons.search, size: 17, color: Color(0xFF777777)),
+                  SizedBox(width: 6),
+                  Text(
+                    '搜索',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF777777)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.searchBg,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: const ConversationAddButton(dense: true),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _MobileListToolbar extends StatelessWidget {
+  const _MobileListToolbar();
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    bottom: false,
+    child: Container(
+      height: 56,
+      decoration: const BoxDecoration(
+        color: AppColors.navBarBg,
+        border: Border(
+          bottom: BorderSide(color: AppColors.divider, width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 48),
+          const Expanded(
+            child: Center(
+              child: Text(
+                '微信',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: '搜索',
+            icon: const Icon(Icons.search, size: 27),
+            onPressed: () => context.push('/discover/search'),
+          ),
+          const ConversationAddButton(),
+          const SizedBox(width: 4),
+        ],
+      ),
+    ),
+  );
+}
+
 /// PC 布局下未选中会话时右侧的占位页
 class _EmptyChatPane extends StatelessWidget {
   const _EmptyChatPane();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.chatBg,
-      appBar: AppBar(actions: const [OutputModeButton()]),
-      body: const Center(
-        child: Icon(Icons.chat_bubble_outline, size: 80, color: Colors.black12),
+    return const ColoredBox(
+      color: Colors.white,
+      child: Center(
+        child: Icon(Icons.chat_bubble_outline, size: 72, color: Colors.black12),
       ),
     );
   }
@@ -191,9 +264,15 @@ class ConversationListView extends ConsumerWidget {
     final wide =
         MediaQuery.sizeOf(context).width >= AppDimens.desktopBreakpoint;
     return ListView.separated(
+      padding: EdgeInsets.zero,
       // 列表性能：懒加载，不一次性渲染全部 item
       itemCount: list.length,
-      separatorBuilder: (_, _) => const Divider(indent: 76, height: 1),
+      separatorBuilder: (_, _) => Divider(
+        height: 0.5,
+        thickness: 0.5,
+        indent: wide ? 66 : 72,
+        color: AppColors.divider,
+      ),
       itemBuilder: (context, index) {
         final conversation = list[index];
         return ConversationTile(
@@ -212,33 +291,6 @@ class ConversationListView extends ConsumerWidget {
           },
         );
       },
-    );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  const _SearchBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.searchBg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search, size: 18, color: AppColors.textSecondary),
-          SizedBox(width: 4),
-          Text(
-            '搜索',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-          ),
-        ],
-      ),
     );
   }
 }

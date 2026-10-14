@@ -93,6 +93,24 @@ void main() {
     );
   });
 
+  test('冯宝宝在已有数据中补种单聊、人设、开场白和群成员', () async {
+    final conversations = await container.read(conversationListProvider.future);
+    const id = 'conv_char_fengbaobao';
+    final feng = conversations.singleWhere((c) => c.id == id);
+    expect(feng.contact.name, '冯宝宝');
+    expect(feng.contact.isAi, isTrue);
+    final profile = AiProfile.fromMap(Hive.box('ai_profiles').get(id) as Map);
+    expect(profile.persona, contains('哪都通华北大区'));
+    expect(profile.persona, contains('我不晓得'));
+    expect(profile.chatLog, contains('冯宝宝：'));
+    expect(profile.greeting, contains('吃过饭没'));
+    final greeting =
+        Hive.box('messages').get('char_fengbaobao_greeting') as Map;
+    expect(Message.fromMap(greeting).content, profile.greeting);
+    final group = conversations.singleWhere((c) => c.id == 'conv_group_chars');
+    expect(group.members.any((m) => m.id == 'char_fengbaobao'), isTrue);
+  });
+
   test('升级时删除旧内置角色及其消息和群成员', () async {
     const oldContact = Contact(id: 'char_yujie', name: '旧角色', isAi: true);
     final now = DateTime(2026, 10, 10);

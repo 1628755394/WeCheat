@@ -1,147 +1,156 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
 import '../../providers/ai_profile_provider.dart';
+import '../../providers/contact_override_provider.dart';
 import '../../repositories/ai_characters.dart';
+import 'character_gallery_widgets.dart';
 
-/// 角色广场：猫箱式上下滑角色卡推荐流
-/// 全屏卡片 = 立绘 + 名字 + 人设摘要 + 开场白 + 「开始聊天」
-class CharacterFeedPage extends ConsumerWidget {
+class CharacterFeedPage extends ConsumerStatefulWidget {
   const CharacterFeedPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        title: const Text('角色广场'),
-      ),
-      body: PageView.builder(
-        scrollDirection: Axis.vertical,
-        itemCount: AiCharacters.all.length,
-        itemBuilder: (context, i) =>
-            _CharacterCard(character: AiCharacters.all[i]),
-      ),
-    );
-  }
+  ConsumerState<CharacterFeedPage> createState() => _CharacterFeedPageState();
 }
 
-class _CharacterCard extends ConsumerWidget {
-  final AiCharacter character;
-
-  const _CharacterCard({required this.character});
+class _CharacterFeedPageState extends ConsumerState<CharacterFeedPage> {
+  String _query = '';
+  String _source = '全部';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // 实时读资料，AI 设置里改过人设/开场白这里会跟着变
-    final profile = ref.watch(aiProfileProvider(character.conversationId));
-    final persona = profile.persona.isEmpty
-        ? character.persona
-        : profile.persona;
-    final greeting =
-        profile.greeting.isEmpty ? character.greeting : profile.greeting;
+  Widget build(BuildContext context) {
+    final overrides = ref.watch(contactOverridesProvider);
+    final characters = AiCharacters.all.where((character) {
+      final presentation = characterPresentation(character);
+      final profile = ref.watch(aiProfileProvider(character.conversationId));
+      final name = resolveContact(overrides, character.contact).displayName;
+      final content =
+          '$name ${character.name} ${presentation.source} '
+          '${presentation.tags.join(' ')} ${profile.persona.isEmpty ? character.persona : profile.persona}';
+      return (_source == '全部' || presentation.source == _source) &&
+          content.toLowerCase().contains(_query.trim().toLowerCase());
+    }).toList();
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // 立绘
-        if (character.avatarAsset != null)
-          Image.asset(character.avatarAsset!, fit: BoxFit.cover)
-        else
-          Container(color: const Color(0xFF2E3238)),
-        // 底部渐变遮罩
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.black87],
-              stops: [0.45, 1.0],
-            ),
-          ),
-        ),
-        // 底部信息
-        Positioned(
-          left: 20,
-          right: 20,
-          bottom: 40,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(title: const Text('角色广场')),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1080),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             children: [
-              Text(
-                character.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
+              const Text(
+                '找一个聊得来的人',
+                style: TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                persona.length > 80 ? '${persona.substring(0, 80)}…' : persona,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    color: Colors.white70, fontSize: 13, height: 1.5),
-              ),
-              const SizedBox(height: 12),
-              // 开场白气泡
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+              const Text(
+                '熟悉的角色，新的故事。从一句你好开始。',
+                style: TextStyle(
+                  color: Color(0xFF78817B),
+                  fontSize: 13,
+                  height: 1.5,
                 ),
-                child: Text(
-                  greeting,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 13, height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                onChanged: (value) => setState(() => _query = value),
+                decoration: InputDecoration(
+                  hintText: '搜索角色、作品或性格',
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  filled: true,
+                  fillColor: const Color(0xFFF5F7F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        minimumSize: const Size.fromHeight(44),
+                  for (final source in [
+                    '全部',
+                    ...AiCharacters.all
+                        .map((c) => characterPresentation(c).source)
+                        .toSet(),
+                  ])
+                    ChoiceChip(
+                      label: Text(source),
+                      selected: _source == source,
+                      showCheckmark: false,
+                      selectedColor: const Color(0xFFE7F5EC),
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: _source == source
+                            ? const Color(0xFFB8DEC6)
+                            : AppColors.divider,
                       ),
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      label: const Text('开始聊天'),
-                      onPressed: () => context.push(
-                          '/chat/${character.conversationId}'),
+                      labelStyle: TextStyle(
+                        color: _source == source
+                            ? const Color(0xFF267447)
+                            : const Color(0xFF737B76),
+                        fontSize: 12,
+                      ),
+                      onSelected: (_) => setState(() => _source = source),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton.filled(
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.white24,
-                      minimumSize: const Size(44, 44),
-                    ),
-                    icon: const Icon(Icons.call, color: Colors.white),
-                    tooltip: '语音通话',
-                    onPressed: () => context.push(
-                        '/call/${character.conversationId}?video=0'),
-                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              const Center(
-                child: Text('上滑看下一个角色',
-                    style: TextStyle(color: Colors.white38, fontSize: 12)),
+              const SizedBox(height: 24),
+              Text(
+                '${characters.length} 位角色',
+                style: const TextStyle(color: Color(0xFF78817B), fontSize: 12),
               ),
+              const SizedBox(height: 12),
+              if (characters.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.search_off_rounded,
+                        size: 36,
+                        color: Color(0xFFA0AAA3),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        '暂时没有找到这个角色',
+                        style: TextStyle(color: AppColors.ink),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        '试试其他名字，或切换到「全部」',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                CharacterGalleryGrid(characters: characters),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

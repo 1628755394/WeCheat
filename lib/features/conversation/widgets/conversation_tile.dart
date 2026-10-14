@@ -5,7 +5,7 @@ import '../../../core/utils/time_utils.dart';
 import '../../../core/widgets/app_avatar.dart';
 import '../../../models/conversation.dart';
 
-/// 会话列表卡片：头像 + 未读角标 / 昵称 / 最新摘要 / 时间 / 免打扰
+/// 会话列表行：头像 + 未读角标 / 昵称 / 最新摘要 / 时间 / 免打扰
 class ConversationTile extends StatelessWidget {
   final Conversation conversation;
   final VoidCallback onTap;
@@ -27,7 +27,11 @@ class ConversationTile extends StatelessWidget {
 
     // 免打扰会话：只显示小红点，不显示数字
     if (conversation.muted) {
-      return Badge(smallSize: 9, backgroundColor: AppColors.badge, child: avatar);
+      return Badge(
+        smallSize: 9,
+        backgroundColor: AppColors.badge,
+        child: avatar,
+      );
     }
     return Badge.count(
       count: unread,
@@ -40,73 +44,79 @@ class ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 选中行：绿底白字（仿微信 PC）；否则置顶行浅灰底
-    final nameColor = selected ? Colors.white : Colors.black87;
-    final subColor =
-        selected ? Colors.white.withValues(alpha: 0.75) : AppColors.textSecondary;
+    final desktop =
+        MediaQuery.sizeOf(context).width >= AppDimens.desktopBreakpoint;
+    final nameColor = AppColors.ink;
+    final subColor = AppColors.textSecondary;
 
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        color: selected
-            ? AppColors.primary
-            : conversation.pinned
-                ? AppColors.pinnedBg
-                : Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        child: Row(
-          children: [
-            _avatarWithBadge(),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    conversation.contact.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16.5,
-                      color: nameColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    conversation.lastMessage,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: subColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+    final row = Container(
+      height: desktop ? 72 : 72,
+      color: desktop
+          ? selected
+                ? AppColors.desktopSelected
+                : AppColors.desktopList
+          : conversation.pinned
+          ? const Color(0xFFEDEDED)
+          : Colors.white,
+      padding: EdgeInsets.symmetric(
+        horizontal: desktop ? 12 : 13,
+        vertical: desktop ? 10 : 10,
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: desktop ? 44 : 48,
+            height: desktop ? 44 : 48,
+            child: _avatarWithBadge(),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  TimeUtils.formatConversationTime(
-                      conversation.lastMessageTime),
+                  conversation.contact.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: desktop ? 14 : 16,
+                    color: nameColor,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  conversation.lastMessage,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: desktop ? 12 : 13,
                     color: subColor,
                   ),
                 ),
-                const SizedBox(height: 6),
-                if (conversation.muted)
-                  Icon(Icons.volume_off, size: 16, color: subColor)
-                else
-                  const SizedBox(height: 16),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 5),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                TimeUtils.formatConversationTime(conversation.lastMessageTime),
+                style: TextStyle(fontSize: desktop ? 10 : 11, color: subColor),
+              ),
+              const SizedBox(height: 7),
+              if (conversation.muted)
+                Icon(Icons.volume_off_outlined, size: 14, color: subColor)
+              else
+                const SizedBox(height: 14),
+            ],
+          ),
+        ],
       ),
     );
+    return InkWell(onTap: onTap, child: row);
   }
 }

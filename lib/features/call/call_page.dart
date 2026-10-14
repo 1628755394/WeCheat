@@ -24,6 +24,7 @@ import '../../services/mood_policy.dart';
 import '../../services/stt_service.dart';
 import '../../services/tts_service.dart';
 import '../../services/voice_api_client.dart';
+import '../../services/realtime_voice_call.dart';
 import '../../services/voice_service.dart';
 import '../../services/llm_service.dart';
 import '../../services/virtual_actor.dart';
@@ -44,8 +45,9 @@ String stripActions(String text) {
 }
 
 /// 音视频通话页：语音/视频双模式
-/// AI 会话：接通后 Ollama 流式生成 → flutter_tts 播报 + 实时字幕；
-/// 用户按住说话 → speech_to_text 识别 → 发给 AI。非 AI 会话响铃后无应答。
+/// 绑定 SoulNexus 音色的 AI 会话接通后持续传送麦克风 PCM，
+/// 由服务端识别、生成回复并合成语音；其他 AI 会话使用本地语音输入。
+/// 非 AI 会话响铃后无应答。
 class CallPage extends ConsumerStatefulWidget {
   final String conversationId;
   final bool isVideo;
@@ -72,6 +74,8 @@ class _CallPageState extends ConsumerState<CallPage> {
   final _tts = TtsService();
   final _voice = VoiceService();
   final _stt = SttService();
+  RealtimeVoiceCall? _realtimeCall;
+  bool _realtimeConnecting = false;
   final _inputController = TextEditingController();
   final _captions = <_Caption>[];
   final _captionScrollController = ScrollController();
@@ -91,6 +95,8 @@ class _CallPageState extends ConsumerState<CallPage> {
 
   bool _sttReady = false;
   bool _listening = false;
+  bool _pressHeld = false;
+  bool _realtimeMicReady = false;
   String _partial = '';
   bool _aiSpeaking = false;
   bool _muted = false;
@@ -263,7 +269,117 @@ class _CallPageState extends ConsumerState<CallPage> {
     _startTimer();
     _startIdleTimer();
     final greeting = buildCallGreetingPrompt(profile, _history);
-    unawaited(_aiTurn(greeting));
+    if (profile.hasSoulNexusVoice &&
+        profile.voiceApiBaseUrl.isNotEmpty &&
+        VoiceApiRuntime.bearerToken.isNotEmpty) {
+      _realtimeConnecting = true;
+      unawaited(_connectRealtime(profile, greeting));
+    } else {
+      unawaited(_aiTurn(greeting));
+    }
+  }
+
+  Future<void> _connectRealtime(AiProfile profile, String greeting) async {
+    final api = VoiceApiClient(baseUrl: profile.voiceApiBaseUrl);
+    try {
+      final call = await RealtimeVoiceCall.connect(
+        api: api,
+        cloneProfileId: profile.voiceCloneProfileId,
+        systemPrompt: buildAiSystemPrompt(
+          profile,
+          userText: '',
+          inCall: true,
+          styleInHistory: _hasStyleTurns,
+        ),
+        initialGreeting: stripActions(profile.greeting).isEmpty
+            ? '你好，我在听。'
+            : stripActions(profile.greeting),
+        canPlay: () => mounted && _status == _CallStatus.connected && _voiceOn,
+        history: _history
+            .where((entry) => entry.role == 'user' || entry.role == 'assistant')
+            .toList()
+            .reversed
+            .take(24)
+            .toList()
+            .reversed
+            .map((entry) => {'role': entry.role, 'content': entry.content})
+            .toList(),
+        onTranscript: (role, text) {
+          if (!mounted ||
+              _status != _CallStatus.connected ||
+              text.trim().isEmpty) {
+            return;
+          }
+          if (_history.isNotEmpty &&
+              _history.last.role == role &&
+              _history.last.content == text) {
+            return;
+          }
+          if (role == 'user') {
+            _resetIdleTimer();
+            _actor?.hearUser(text, memories: profile.memories);
+          } else {
+            _actor?.hearAi(text);
+          }
+          _history.add((role: role, content: text));
+          final caption = _Caption(role == 'user' ? 'me' : 'ai', text);
+          setState(() => _captions.add(caption));
+          unawaited(_saveCallCaption(caption));
+          _scrollCaptionsToEnd();
+        },
+        onSpeaking: (speaking) {
+          if (!mounted || _status != _CallStatus.connected) return;
+          if (speaking && _voiceOn) {
+            _actor?.startSpeech();
+          } else {
+            _actor?.stopSpeech();
+          }
+          setState(() => _aiSpeaking = speaking);
+        },
+        onError: (error) {
+          debugPrint('Realtime voice call failed: $error');
+          if (mounted && _status == _CallStatus.connected) {
+            _addHint('实时语音连接异常：$error');
+          }
+        },
+        onClosed: () {
+          if (mounted && _status == _CallStatus.connected) {
+            _addHint('实时语音连接已断开');
+            _realtimeCall = null;
+            setState(() {
+              _realtimeMicReady = false;
+              _listening = false;
+            });
+          }
+        },
+      );
+      if (!mounted || _status != _CallStatus.connected) {
+        await call.close();
+        return;
+      }
+      _realtimeCall = call;
+      _realtimeConnecting = false;
+      call.setMuted(_muted);
+      final started = await call.startListening();
+      if (!mounted ||
+          _status != _CallStatus.connected ||
+          !identical(_realtimeCall, call)) {
+        await call.close();
+        return;
+      }
+      setState(() {
+        _realtimeMicReady = started;
+        _listening = started && !_muted;
+      });
+      if (!started) _addHint('麦克风不可用，请允许录音权限后重试通话');
+    } catch (error) {
+      _realtimeConnecting = false;
+      api.close();
+      debugPrint('Realtime voice startup failed: $error');
+      if (!mounted || _status != _CallStatus.connected) return;
+      _addHint('实时语音不可用，已切回按住说话模式');
+      unawaited(_aiTurn(greeting));
+    }
   }
 
   /// 启动空闲检测：1 分钟无用户输入时主动互动。
@@ -286,6 +402,7 @@ class _CallPageState extends ConsumerState<CallPage> {
 
   /// 检查是否空闲超过 1 分钟。
   void _checkIdle() {
+    if (_realtimeCall != null) return;
     if (_lastUserInputTime == null) return;
     final idleSeconds = DateTime.now()
         .difference(_lastUserInputTime!)
@@ -515,19 +632,19 @@ class _CallPageState extends ConsumerState<CallPage> {
     try {
       final profile = ref.read(aiProfileProvider(widget.conversationId));
       var rewritten = '';
-      await for (final chunk in ref
-          .read(llmServiceProvider)
-          .chat(
-            profile,
-            _history,
-            systemPrompt:
-                '${buildAiSystemPrompt(profile, userText: userContent, inCall: true, styleInHistory: _hasStyleTurns)}\n${getMoodInstruction(ref.read(moodProvider(widget.conversationId)), profile.affinity)}\n上一版回复包含人身贬低。重新回答当前问题，只针对事情表达情绪，绝不评价或辱骂用户本人。',
-          )
-          .timeout(const Duration(seconds: 45))) {
+      await for (final chunk
+          in ref
+              .read(llmServiceProvider)
+              .chat(
+                profile,
+                _history,
+                systemPrompt:
+                    '${buildAiSystemPrompt(profile, userText: userContent, inCall: true, styleInHistory: _hasStyleTurns)}\n${getMoodInstruction(ref.read(moodProvider(widget.conversationId)), profile.affinity)}\n上一版回复包含人身贬低。重新回答当前问题，只针对事情表达情绪，绝不评价或辱骂用户本人。',
+              )
+              .timeout(const Duration(seconds: 45))) {
         rewritten += chunk;
       }
-      if (rewritten.trim().isNotEmpty &&
-          !containsPersonalAttack(rewritten)) {
+      if (rewritten.trim().isNotEmpty && !containsPersonalAttack(rewritten)) {
         return rewritten;
       }
     } catch (error) {
@@ -588,10 +705,31 @@ class _CallPageState extends ConsumerState<CallPage> {
 
   Future<void> _startListening() async {
     if (_muted || _status != _CallStatus.connected) return;
+    if (_realtimeConnecting) {
+      _addHint('实时语音连接中，请稍后再说');
+      return;
+    }
     if (_aiSpeaking) await _interruptAiSpeech();
+    if (!_pressHeld || !mounted || _status != _CallStatus.connected) return;
     _actor?.react(ActorEvent.userSpeech);
+    if (_realtimeCall case final call?) {
+      final started = await call.startListening();
+      if (!_pressHeld || !mounted || _status != _CallStatus.connected) {
+        if (started) await call.stopListening();
+        return;
+      }
+      if (!started) {
+        _addHint('麦克风不可用，请检查录音权限');
+        return;
+      }
+      setState(() {
+        _listening = true;
+        _partial = '';
+      });
+      return;
+    }
     if (!_sttReady) _sttReady = await _stt.init();
-    if (!mounted || _status != _CallStatus.connected) return;
+    if (!_pressHeld || !mounted || _status != _CallStatus.connected) return;
     if (!_sttReady) {
       _addHint('语音识别不可用，点右侧键盘图标改用文字输入');
       return;
@@ -605,10 +743,16 @@ class _CallPageState extends ConsumerState<CallPage> {
         if (mounted) setState(() => _partial = t);
       },
     );
+    if (!_pressHeld) await _stopListening();
   }
 
   Future<void> _stopListening() async {
     if (!_listening) return;
+    if (_realtimeCall case final call?) {
+      await call.stopListening();
+      if (mounted) setState(() => _listening = false);
+      return;
+    }
     await _stt.stop();
     if (!mounted || _status != _CallStatus.connected) return;
     setState(() => _listening = false);
@@ -639,6 +783,7 @@ class _CallPageState extends ConsumerState<CallPage> {
     _actor?.stopSpeech();
     _speechGeneration++;
     _turnGeneration++;
+    if (_realtimeCall case final call?) await call.abortSpeech();
     await _tts.stop();
     await _voice.stop();
     if (mounted) setState(() => _aiSpeaking = false);
@@ -706,6 +851,10 @@ class _CallPageState extends ConsumerState<CallPage> {
   void _sendTyped() {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
+    if (_realtimeConnecting || _realtimeCall != null) {
+      _addHint('实时语音通话请使用麦克风；文字消息可在聊天页发送');
+      return;
+    }
     _runCommand(text);
     _actor?.hearUser(
       text,
@@ -810,6 +959,8 @@ class _CallPageState extends ConsumerState<CallPage> {
 
   Future<void> _releaseCall() async {
     try {
+      await _realtimeCall?.close();
+      _realtimeCall = null;
       await _tts.stop();
       await _voice.dispose();
       if (_sttReady) await _stt.cancel();
@@ -1234,7 +1385,7 @@ class _CallPageState extends ConsumerState<CallPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (_hasAnimatedModel) _commandControls(),
-        // AI 会话：按住说话条 / 文字输入条（键盘图标切换）
+        // AI 视频/语音通话都保留实时麦克风输入；动作输入仍在模型区上方显示。
         if (_isAi && !_hasAnimatedModel) _inputArea(),
         const SizedBox(height: 16),
         Center(
@@ -1263,6 +1414,10 @@ class _CallPageState extends ConsumerState<CallPage> {
                   active: !_muted,
                   onTap: () {
                     setState(() => _muted = !_muted);
+                    _realtimeCall?.setMuted(_muted);
+                    if (_realtimeCall != null) {
+                      setState(() => _listening = _realtimeMicReady && !_muted);
+                    }
                     _actor?.react(_muted ? ActorEvent.mute : ActorEvent.unmute);
                   },
                 ),
@@ -1291,97 +1446,138 @@ class _CallPageState extends ConsumerState<CallPage> {
     ),
   );
 
-  Widget _inputField() => Container(
-    margin: const EdgeInsets.symmetric(horizontal: 8),
-    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-    decoration: BoxDecoration(
-      color: const Color(0xFF353535),
-      borderRadius: BorderRadius.circular(28),
-      border: Border.all(color: Colors.white12),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        IconButton(
-          visualDensity: VisualDensity.standard,
-          constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-          tooltip: _showInput ? '切换语音输入' : '切换文字输入',
-          icon: Icon(
-            _showInput ? Icons.mic : Icons.keyboard,
-            color: Colors.white70,
+  Widget _inputField() => _realtimeCall != null || _realtimeConnecting
+      ? Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFF353535),
+            borderRadius: BorderRadius.circular(28),
           ),
-          onPressed: () {
-            FocusScope.of(context).unfocus();
-            setState(() => _showInput = !_showInput);
-          },
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: _showInput
-              ? Container(
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: TextField(
-                    controller: _inputController,
-                    minLines: 1,
-                    maxLines: 3,
-                    style: const TextStyle(fontSize: 14, color: Colors.white),
-                    cursorColor: const Color(0xFF47A8FF),
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendTyped(),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      hintText: '聊点什么…',
-                      hintStyle: TextStyle(color: Colors.white54),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 10,
-                      ),
-                    ),
-                  ),
-                )
-              : GestureDetector(
-                  onLongPressStart: (_) => unawaited(_startListening()),
-                  onLongPressEnd: (_) => unawaited(_stopListening()),
-                  child: Container(
-                    height: 44,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: _listening ? Colors.white : Colors.transparent,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _listening ? '松开 发送' : '按住 说话',
-                      style: TextStyle(
-                        color: _listening ? Colors.black87 : Colors.white,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
+          child: Text(
+            _realtimeConnecting
+                ? '正在连接实时语音…'
+                : !_realtimeMicReady
+                ? '麦克风不可用，请检查录音权限'
+                : _muted
+                ? '麦克风已静音'
+                : '正在聆听 · 直接说话',
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+          ),
+        )
+      : Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFF353535),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.standard,
+                constraints: const BoxConstraints.tightFor(
+                  width: 48,
+                  height: 48,
                 ),
-        ),
-        if (_showInput)
-          IconButton(
-            visualDensity: VisualDensity.standard,
-            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-            tooltip: '发送',
-            icon: const CircleAvatar(
-              radius: 18,
-              backgroundColor: Color(0xFF168BFF),
-              child: Icon(Icons.arrow_upward, color: Colors.white, size: 22),
-            ),
-            onPressed: _sendTyped,
-          )
-        else
-          const SizedBox(width: 48),
-      ],
-    ),
-  );
+                tooltip: _showInput ? '切换语音输入' : '切换文字输入',
+                icon: Icon(
+                  _showInput ? Icons.mic : Icons.keyboard,
+                  color: Colors.white70,
+                ),
+                onPressed: () {
+                  FocusScope.of(context).unfocus();
+                  setState(() => _showInput = !_showInput);
+                },
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _showInput
+                    ? Container(
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: TextField(
+                          controller: _inputController,
+                          minLines: 1,
+                          maxLines: 3,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                          cursorColor: const Color(0xFF47A8FF),
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendTyped(),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            hintText: '聊点什么…',
+                            hintStyle: TextStyle(color: Colors.white54),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 10,
+                            ),
+                          ),
+                        ),
+                      )
+                    : GestureDetector(
+                        onLongPressStart: (_) {
+                          _pressHeld = true;
+                          unawaited(_startListening());
+                        },
+                        onLongPressEnd: (_) {
+                          _pressHeld = false;
+                          unawaited(_stopListening());
+                        },
+                        child: Container(
+                          height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _listening
+                                ? Colors.white
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            _listening ? '松开 发送' : '按住 说话',
+                            style: TextStyle(
+                              color: _listening ? Colors.black87 : Colors.white,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+              if (_showInput)
+                IconButton(
+                  visualDensity: VisualDensity.standard,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 48,
+                    height: 48,
+                  ),
+                  tooltip: '发送',
+                  icon: const CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Color(0xFF168BFF),
+                    child: Icon(
+                      Icons.arrow_upward,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  onPressed: _sendTyped,
+                )
+              else
+                const SizedBox(width: 48),
+            ],
+          ),
+        );
 
   Widget _hangupButton() {
     final size = MediaQuery.sizeOf(context).width < 360 ? 52.0 : 64.0;

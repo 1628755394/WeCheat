@@ -3,6 +3,7 @@ import '../../core/widgets/app_page_body.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart' show FTile, FTileGroup;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -206,33 +207,34 @@ class _AddAiFriendPageState extends ConsumerState<AddAiFriendPage> {
               ),
             ),
             const SizedBox(height: 12),
-            Material(
-              color: Colors.white,
-              child: ListTile(
-                leading: const Icon(Icons.memory, color: AppColors.primary),
-                title: const Text('模型', style: TextStyle(fontSize: 16)),
-                subtitle: Text(
-                  modelChoiceLabel(_modelChoice),
-                  style: const TextStyle(
-                    fontSize: 13,
+            FTileGroup(
+              children: [
+                FTile(
+                  prefix: const Icon(Icons.memory, color: AppColors.primary),
+                  title: const Text('模型'),
+                  subtitle: Text(
+                    modelChoiceLabel(_modelChoice),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  suffix: const Icon(
+                    Icons.chevron_right,
                     color: AppColors.textSecondary,
                   ),
+                  onPress: () async {
+                    final choice = await showModelPicker(
+                      context,
+                      ref,
+                      _modelChoice,
+                    );
+                    if (choice != null) {
+                      setState(() => _modelChoice = choice);
+                    }
+                  },
                 ),
-                trailing: const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textSecondary,
-                ),
-                onTap: () async {
-                  final choice = await showModelPicker(
-                    context,
-                    ref,
-                    _modelChoice,
-                  );
-                  if (choice != null) {
-                    setState(() => _modelChoice = choice);
-                  }
-                },
-              ),
+              ],
             ),
             const Padding(
               padding: EdgeInsets.all(16),

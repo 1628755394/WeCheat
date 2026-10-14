@@ -394,6 +394,22 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  forui:
+    dependency: "direct main"
+    description:
+      name: forui
+      sha256: "9882c82d91827d3b5ae0af20644873212d6dda1b89897dec535f0296dad3daec"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.27.5"
+  forui_lucide:
+    dependency: transitive
+    description:
+      name: forui_lucide
+      sha256: "63c660e4213309d9558cfc1c10ec52c13dab88cc2794dc41b8be769a7c86206c"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.27.0"
   fuchsia_remote_debug_protocol:
     dependency: transitive
     description: flutter
@@ -944,6 +960,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.4.1"
+  sugar:
+    dependency: transitive
+    description:
+      name: sugar
+      sha256: a0a97f1d3552a3ef4cbec7c6e62c7b52c151cd5c11e984e8311700a918f73dc5
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "4.0.0"
   sync_http:
     dependency: transitive
     description:
@@ -1090,4 +1114,4 @@ packages:
     version: "3.1.4"
 sdks:
   dart: ">=3.13.2 <4.0.0"
-  flutter: ">=3.44.0"
+  flutter: ">=3.47.0-0"

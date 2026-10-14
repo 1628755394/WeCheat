@@ -2,10 +2,12 @@ import '../../core/widgets/app_page_body.dart';
 import '../../core/widgets/wechat_dialog.dart';
 
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart' show FTile, FTileGroup;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../core/constants.dart';
+import '../../core/widgets/app_visual.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/conversation_provider.dart';
 import '../../providers/call_performance_provider.dart';
@@ -18,14 +20,13 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: AppColors.searchBg,
+      backgroundColor: AppColors.canvas,
       appBar: AppBar(title: const Text('设置')),
       body: AppPageBody(
         child: ListView(
           children: [
-            const SizedBox(height: 8),
-            Material(
-              color: Colors.white,
+            const AppSectionLabel('通话偏好'),
+            AppPanel(
               child: SwitchListTile(
                 title: const Text('通话动画'),
                 value: ref.watch(callPerformanceProvider).animationsEnabled,
@@ -33,30 +34,28 @@ class SettingsPage extends ConsumerWidget {
                     ref.read(callPerformanceProvider.notifier).select(value),
               ),
             ),
-            const SizedBox(height: 8),
-            Material(
-              color: Colors.white,
-              child: Column(
+            const AppSectionLabel('好友与数据'),
+            AppPanel(
+              child: FTileGroup(
                 children: [
-                  ListTile(
-                    leading: const Icon(
+                  FTile(
+                    prefix: const Icon(
                       Icons.person_add_alt_1,
                       color: AppColors.primary,
                     ),
                     title: const Text('添加 AI 好友'),
-                    trailing: const Icon(
+                    suffix: const Icon(
                       Icons.chevron_right,
                       color: AppColors.textSecondary,
                     ),
-                    onTap: () => Navigator.of(context).push(
+                    onPress: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const AddAiFriendPage(),
                       ),
                     ),
                   ),
-                  const Divider(indent: 56, height: 1),
-                  ListTile(
-                    leading: const Icon(
+                  FTile(
+                    prefix: const Icon(
                       Icons.cleaning_services_outlined,
                       color: Colors.orange,
                     ),
@@ -68,11 +67,10 @@ class SettingsPage extends ConsumerWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    onTap: () => _clearMessages(context, ref),
+                    onPress: () => _clearMessages(context, ref),
                   ),
-                  const Divider(indent: 56, height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.restart_alt, color: Colors.red),
+                  FTile(
+                    prefix: const Icon(Icons.restart_alt, color: Colors.red),
                     title: const Text(
                       '重置应用数据',
                       style: TextStyle(color: Colors.red),
@@ -84,24 +82,27 @@ class SettingsPage extends ConsumerWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    onTap: () => _resetAll(context),
+                    onPress: () => _resetAll(context),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            const Material(
-              color: Colors.white,
-              child: ListTile(
-                leading: Icon(Icons.info_outline, color: AppColors.primary),
-                title: Text('关于 WeCheat'),
-                subtitle: Text(
-                  'Flutter 仿微信 · AI 角色扮演客户端',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+            const AppSectionLabel('关于'),
+            AppPanel(
+              child: FTileGroup(
+                children: [
+                  FTile(
+                    prefix: Icon(Icons.info_outline, color: AppColors.primary),
+                    title: Text('关于 WeCheat'),
+                    subtitle: Text(
+                      'Flutter 仿微信 · AI 角色扮演客户端',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ],

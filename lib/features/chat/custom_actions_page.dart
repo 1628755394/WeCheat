@@ -56,34 +56,38 @@ class CustomActionsPage extends ConsumerWidget {
           ? const Center(child: Text('模型没有可用动画'))
           : model.actions.isEmpty
           ? const Center(child: Text('暂无自定义动作'))
-          : ListView.separated(
+          : ListView.builder(
               itemCount: model.actions.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final action = model.actions[index];
-                return ListTile(
-                  title: Text(action.name),
-                  subtitle: Text(
-                    [
-                      model.motionFor(action)?.label ?? '动画已失效',
-                      if (action.triggers.isNotEmpty) action.triggers.join('、'),
-                      '${action.speed.toStringAsFixed(1)}×',
-                    ].join('\n'),
-                  ),
-                  onTap: () => _edit(context, ref, model, action),
-                  trailing: IconButton(
-                    tooltip: '删除动作',
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => ref
-                        .read(aiProfileProvider(conversationId).notifier)
-                        .setLive2dModel(
-                          model.withActions(
-                            model.actions
-                                .where((entry) => entry.id != action.id)
-                                .toList(),
-                          ),
-                        ),
-                  ),
+                return Column(
+                  children: [
+                    if (index > 0) const Divider(height: 1),
+                    ListTile(
+                      title: Text(action.name),
+                      subtitle: Text(
+                        [
+                          model.motionFor(action)?.label ?? '动画已失效',
+                          if (action.triggers.isNotEmpty) action.triggers.join('、'),
+                          '${action.speed.toStringAsFixed(1)}×',
+                        ].join('\n'),
+                      ),
+                      onTap: () => _edit(context, ref, model, action),
+                      trailing: IconButton(
+                        tooltip: '删除动作',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => ref
+                            .read(aiProfileProvider(conversationId).notifier)
+                            .setLive2dModel(
+                              model.withActions(
+                                model.actions
+                                    .where((entry) => entry.id != action.id)
+                                    .toList(),
+                              ),
+                            ),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),

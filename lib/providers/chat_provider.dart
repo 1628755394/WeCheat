@@ -532,7 +532,8 @@ class ChatMessages extends AsyncNotifier<ChatState> {
     await ref.read(aiProfileProvider(key).notifier).ensureLoaded();
     if (!canPlay()) return;
     final profile = ref.read(aiProfileProvider(key));
-    final bytes = await _synthesizeClone(profile, target.content);
+    final spoken = stripActions(target.content);
+    final bytes = spoken.isEmpty ? null : await _synthesizeClone(profile, spoken);
     if (!canPlay()) return;
     if (bytes != null) {
       if (target.type == MessageType.voice) {

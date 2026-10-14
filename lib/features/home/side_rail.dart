@@ -31,16 +31,16 @@ class SideRail extends ConsumerWidget {
     final me = ref.watch(currentUserProvider);
 
     return Container(
-      width: 60,
-      color: AppColors.navBarBg,
+      width: 68,
+      color: AppColors.desktopRail,
       child: Column(
         children: [
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
           GestureDetector(
             onTap: () => context.push('/profile'),
-            child: AppAvatar(contact: me, size: 38),
+            child: AppAvatar(contact: me, size: 40, radius: 6),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
           for (var i = 0; i < _tabs.length; i++)
             _RailIcon(
               icon: selectedIndex == i ? _tabs[i].$2 : _tabs[i].$1,
@@ -50,8 +50,19 @@ class SideRail extends ConsumerWidget {
               onTap: () => onSelect(i),
             ),
           const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.phone_iphone_outlined, size: 22),
+            tooltip: '个人资料',
+            color: const Color(0xFF666666),
+            onPressed: () => context.push('/profile'),
+          ),
+          const SizedBox(height: 12),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.menu, color: Colors.black54),
+            icon: const Icon(
+              Icons.menu_rounded,
+              size: 23,
+              color: Color(0xFF666666),
+            ),
             tooltip: '更多',
             onSelected: (value) {
               if (value == 'settings' || value == 'about') {
@@ -63,7 +74,7 @@ class SideRail extends ConsumerWidget {
               PopupMenuItem(value: 'about', child: Text('关于')),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
         ],
       ),
     );
@@ -87,25 +98,31 @@ class _RailIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.primary : Colors.black54;
-    final iconWidget = Icon(icon, color: color, size: 26);
+    final color = selected ? AppColors.primary : const Color(0xFF666666);
+    final iconWidget = Icon(icon, color: color, size: 24);
     return Tooltip(
       message: label,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          width: 60,
-          height: 48,
-          child: Center(
-            child: badge > 0
-                ? Badge.count(
-                    count: badge,
-                    maxCount: 99,
-                    backgroundColor: AppColors.badge,
-                    textColor: Colors.white,
-                    child: iconWidget,
-                  )
-                : iconWidget,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              width: 68,
+              height: 48,
+              child: Center(
+                child: badge > 0
+                    ? Badge.count(
+                        count: badge,
+                        maxCount: 99,
+                        backgroundColor: AppColors.badge,
+                        textColor: Colors.white,
+                        child: iconWidget,
+                      )
+                    : iconWidget,
+              ),
+            ),
           ),
         ),
       ),

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 /// 全局常量：配色、尺寸
 abstract final class AppColors {
+  static const ink = Color(0xFF1B2A23);
+  static const canvas = Color(0xFFF5F7F5);
+
   /// 微信绿
   static const primary = Color(0xFF07C160);
 
@@ -24,10 +27,14 @@ abstract final class AppColors {
   static const badge = Color(0xFFFA5151);
 
   /// 聊天页背景
-  static const chatBg = Color(0xFFEDEDED);
+  static const chatBg = Color(0xFFF5F5F5);
 
   /// 我方聊天气泡绿
-  static const bubbleMe = Color(0xFF95EC69);
+  static const bubbleMe = Color(0xFF98EE9D);
+
+  static const desktopRail = Colors.white;
+  static const desktopList = Colors.white;
+  static const desktopSelected = Color(0xFFC7C7C7);
 
   /// 头像底色候选
   static const avatarPalette = [
@@ -51,5 +58,5 @@ abstract final class AppDimens {
   static const desktopBreakpoint = 760.0;
 
   /// PC 版中栏（会话列表）宽度
-  static const listPaneWidth = 300.0;
+  static const listPaneWidth = 280.0;
 }

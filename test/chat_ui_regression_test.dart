@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:forui/forui.dart' show FTheme;
 import 'package:wecheat/core/theme.dart';
 import 'package:wecheat/core/widgets/wechat_dialog.dart';
 import 'package:wecheat/features/chat/ai_settings_page.dart';
@@ -23,6 +24,11 @@ import 'package:wecheat/services/llm_service.dart';
 import 'package:wecheat/services/ollama_service.dart';
 import 'package:wecheat/services/remote_llm_service.dart';
 import 'package:wecheat/features/chat/message_translation_dialog.dart';
+
+Widget _foruiBuilder(BuildContext context, Widget? child) => FTheme(
+  data: appForuiTheme,
+  child: child ?? const SizedBox.shrink(),
+);
 
 class _Conversations extends ConversationList {
   @override
@@ -155,6 +161,7 @@ void main() {
           container: container,
           child: MaterialApp(
             theme: buildAppTheme(),
+            builder: _foruiBuilder,
             home: const ChatPage(conversationId: 'a'),
           ),
         ),
@@ -173,6 +180,7 @@ void main() {
           container: container,
           child: MaterialApp(
             theme: buildAppTheme(),
+            builder: _foruiBuilder,
             home: const Scaffold(
               body: MessageTranslationDialog(text: '你好', profileId: 'a'),
             ),
@@ -213,6 +221,7 @@ void main() {
           container: container,
           child: MaterialApp(
             theme: buildAppTheme(),
+            builder: _foruiBuilder,
             home: ChatPage(conversationId: id),
           ),
         ),
@@ -247,6 +256,7 @@ void main() {
             container: container,
             child: MaterialApp(
               theme: buildAppTheme(),
+              builder: _foruiBuilder,
               home: const ChatInfoPage(conversationId: 'a'),
             ),
           ),
@@ -277,12 +287,17 @@ void main() {
           container: container,
           child: MaterialApp(
             theme: buildAppTheme(),
+            builder: _foruiBuilder,
             home: const AiSettingsPage(conversationId: 'a'),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('删除当前音色'), 400);
+      await tester.scrollUntilVisible(
+        find.text('删除当前音色'),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除当前音色'));
       await tester.pumpAndSettle();

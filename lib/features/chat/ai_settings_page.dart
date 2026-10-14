@@ -2,6 +2,7 @@ import '../../core/widgets/app_page_body.dart';
 import '../../core/widgets/wechat_dialog.dart';
 
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart' show FTile, FTileGroup;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
@@ -40,206 +41,202 @@ class AiSettingsPage extends ConsumerWidget {
         child: ListView(
           children: [
             const _SectionHeader('模型'),
-            Material(
-              color: Colors.white,
-              child: ListTile(
-                leading: const Icon(Icons.memory, color: AppColors.primary),
-                title: const Text('模型', style: TextStyle(fontSize: 16)),
-                subtitle: Text(
-                  modelChoiceLabel(
-                    ModelChoice(
-                      provider: profile.provider,
-                      baseUrl: profile.baseUrl,
-                      apiKey: profile.apiKey,
-                      model: profile.model,
-                      providerName: profile.providerName,
+            FTileGroup(
+              children: [
+                FTile(
+                  prefix: const Icon(Icons.memory, color: AppColors.primary),
+                  title: const Text('模型'),
+                  subtitle: Text(
+                    modelChoiceLabel(
+                      ModelChoice(
+                        provider: profile.provider,
+                        baseUrl: profile.baseUrl,
+                        apiKey: profile.apiKey,
+                        model: profile.model,
+                        providerName: profile.providerName,
+                      ),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
                     ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
+                  suffix: const Icon(
+                    Icons.chevron_right,
                     color: AppColors.textSecondary,
                   ),
+                  onPress: () => _pickModel(context, ref, profile),
                 ),
-                trailing: const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textSecondary,
-                ),
-                onTap: () => _pickModel(context, ref, profile),
-              ),
-            ),
-            if (!const bool.fromEnvironment('dart.vm.product'))
-              Material(
-                color: Colors.white,
-                child: ListTile(
-                  leading: const Icon(Icons.tune, color: AppColors.primary),
-                  title: const Text('情绪参数'),
-                  subtitle: const Text('查看情绪状态、调整参数与预览回复规则'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          MoodDebugPage(conversationId: conversationId),
+                if (!const bool.fromEnvironment('dart.vm.product'))
+                  FTile(
+                    prefix: const Icon(Icons.tune, color: AppColors.primary),
+                    title: const Text('情绪参数'),
+                    subtitle: const Text('查看情绪状态、调整参数与预览回复规则'),
+                    suffix: const Icon(Icons.chevron_right),
+                    onPress: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            MoodDebugPage(conversationId: conversationId),
+                      ),
                     ),
                   ),
-                ),
-              ),
+              ],
+            ),
             const _SectionHeader('视频通话'),
-            Material(
-              color: Colors.white,
-              child: Live2DModelTile(conversationId: conversationId),
-            ),
-            if (profile.live2dModel != null)
-              Material(
-                color: Colors.white,
-                child: ListTile(
-                  leading: const Icon(Icons.gesture),
-                  title: const Text('自定义动作'),
-                  subtitle: Text('${profile.live2dModel!.actions.length} 个动作'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          CustomActionsPage(conversationId: conversationId),
-                    ),
-                  ),
-                ),
-              ),
-            const _SectionHeader('角色卡'),
             Material(
               color: Colors.white,
               child: Column(
                 children: [
-                  ListTile(
-                    leading: const Icon(
-                      Icons.auto_awesome,
-                      color: AppColors.primary,
-                    ),
-                    title: const Text('人设创作助手'),
-                    subtitle: const Text('对话编写人设、开场白、样本与规则'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push<void>(
-                      MaterialPageRoute(
-                        builder: (_) => WritingAssistantPage(
-                          conversationId: conversationId,
+                  Live2DModelTile(conversationId: conversationId),
+                  if (profile.live2dModel != null) ...[
+                    const Divider(indent: 16, height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.gesture),
+                      title: const Text('自定义动作'),
+                      subtitle: Text('${profile.live2dModel!.actions.length} 个动作'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              CustomActionsPage(conversationId: conversationId),
                         ),
                       ),
                     ),
-                  ),
-                  const Divider(indent: 16, height: 1),
-                  ListTile(
-                    title: const Text('人设', style: TextStyle(fontSize: 16)),
-                    subtitle: Text(
-                      profile.persona.isEmpty
-                          ? '未设置，默认 AI 助手'
-                          : profile.persona,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                      color: AppColors.textSecondary,
-                    ),
-                    onTap: () => _edit(
-                      context,
-                      title: '人设',
-                      initial: profile.persona,
-                      hint: '例：你是"林晓雨"，25岁产品经理，说话温柔爱用语气词，回复简短',
-                      onSave: notifier.setPersona,
-                    ),
-                  ),
-                  const Divider(indent: 16, height: 1),
-                  ListTile(
-                    title: const Text('开场白', style: TextStyle(fontSize: 16)),
-                    subtitle: Text(
-                      profile.greeting.isEmpty
-                          ? '未设置，进空会话不会主动打招呼'
-                          : profile.greeting,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                      color: AppColors.textSecondary,
-                    ),
-                    onTap: () => _edit(
-                      context,
-                      title: '开场白',
-                      initial: profile.greeting,
-                      hint: '例：（倚在门边挑眉看你）哟，稀客\n仅对空会话生效',
-                      onSave: notifier.setGreeting,
-                    ),
-                  ),
-                  const Divider(indent: 16, height: 1),
-                  ListTile(
-                    title: const Text('我的人设', style: TextStyle(fontSize: 16)),
-                    subtitle: Text(
-                      profile.userPersona.isEmpty
-                          ? '未设置：告诉 TA"你是谁"，TA 会记住并自然引用'
-                          : profile.userPersona,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                      color: AppColors.textSecondary,
-                    ),
-                    onTap: () => _edit(
-                      context,
-                      title: '我的人设',
-                      initial: profile.userPersona,
-                      hint: '例：我是TA的青梅竹马，计算机系大四，加班狗，爱熬夜',
-                      onSave: notifier.setUserPersona,
-                    ),
-                  ),
-                  const Divider(indent: 16, height: 1),
-                  ListTile(
-                    leading: const Icon(
-                      Icons.translate,
-                      color: AppColors.primary,
-                    ),
-                    title: const Text('回复语言', style: TextStyle(fontSize: 16)),
-                    subtitle: Text(
-                      _languageLabel(profile.language),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                      color: AppColors.textSecondary,
-                    ),
-                    onTap: () =>
-                        _pickLanguage(context, notifier, profile.language),
-                  ),
-                  const Divider(indent: 16, height: 1),
-                  SwitchListTile(
-                    title: const Text('括号动作描写', style: TextStyle(fontSize: 16)),
-                    subtitle: const Text(
-                      '开启后回复带（）动作/神态；关闭则像正常人发微信只说人话',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    value: profile.allowActions,
-                    onChanged: notifier.setAllowActions,
-                  ),
+                  ],
                 ],
+              ),
+            ),
+            const _SectionHeader('角色卡'),
+            FTileGroup(
+              children: [
+                FTile(
+                  prefix: const Icon(
+                    Icons.auto_awesome,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('人设创作助手'),
+                  subtitle: const Text('对话编写人设、开场白、样本与规则'),
+                  suffix: const Icon(Icons.chevron_right),
+                  onPress: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) => WritingAssistantPage(
+                        conversationId: conversationId,
+                      ),
+                    ),
+                  ),
+                ),
+                FTile(
+                  title: const Text('人设'),
+                  subtitle: Text(
+                    profile.persona.isEmpty
+                        ? '未设置，默认 AI 助手'
+                        : profile.persona,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () => _edit(
+                    context,
+                    title: '人设',
+                    initial: profile.persona,
+                    hint: '例：你是"林晓雨"，25岁产品经理，说话温柔爱用语气词，回复简短',
+                    onSave: notifier.setPersona,
+                  ),
+                ),
+                FTile(
+                  title: const Text('开场白'),
+                  subtitle: Text(
+                    profile.greeting.isEmpty
+                        ? '未设置，进空会话不会主动打招呼'
+                        : profile.greeting,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () => _edit(
+                    context,
+                    title: '开场白',
+                    initial: profile.greeting,
+                    hint: '例：（倚在门边挑眉看你）哟，稀客\n仅对空会话生效',
+                    onSave: notifier.setGreeting,
+                  ),
+                ),
+                FTile(
+                  title: const Text('我的人设'),
+                  subtitle: Text(
+                    profile.userPersona.isEmpty
+                        ? '未设置：告诉 TA"你是谁"，TA 会记住并自然引用'
+                        : profile.userPersona,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () => _edit(
+                    context,
+                    title: '我的人设',
+                    initial: profile.userPersona,
+                    hint: '例：我是TA的青梅竹马，计算机系大四，加班狗，爱熬夜',
+                    onSave: notifier.setUserPersona,
+                  ),
+                ),
+                FTile(
+                  prefix: const Icon(
+                    Icons.translate,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('回复语言'),
+                  subtitle: Text(
+                    _languageLabel(profile.language),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  suffix: const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPress: () =>
+                      _pickLanguage(context, notifier, profile.language),
+                ),
+              ],
+            ),
+            Material(
+              color: Colors.white,
+              child: SwitchListTile(
+                title: const Text('括号动作描写'),
+                subtitle: const Text(
+                  '开启后回复带（）动作/神态；关闭则像正常人发微信只说人话',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                value: profile.allowActions,
+                onChanged: notifier.setAllowActions,
               ),
             ),
             const _SectionHeader('对话规则（每轮回复执行）'),

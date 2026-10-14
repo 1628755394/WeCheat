@@ -5,6 +5,24 @@ import 'package:wecheat/models/ai_profile.dart';
 import 'package:wecheat/services/voice_api_client.dart';
 
 void main() {
+  test('voice session URL uses the server path once', () {
+    final client = VoiceApiClient(baseUrl: 'http://192.168.3.15:7072');
+    final uri = client.voiceSessionUri(
+      const VoiceSessionInfo(
+        id: 'session-1',
+        path: '/api/v1/voice-sessions/ws',
+        ticket: 'one-time-ticket',
+        sampleRate: 16000,
+      ),
+    );
+
+    expect(uri.scheme, 'ws');
+    expect(uri.path, '/api/v1/voice-sessions/ws');
+    expect(uri.queryParameters['session_id'], 'session-1');
+    expect(uri.queryParameters['ticket'], 'one-time-ticket');
+    client.close();
+  });
+
   test('SoulNexus voice binding survives profile serialization', () {
     final profile = AiProfile(
       voiceApiBaseUrl: 'http://192.168.1.20:7072',

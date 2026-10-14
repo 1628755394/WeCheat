@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:forui/forui.dart' show FTheme;
 import 'package:wecheat/features/mine/mine_page.dart';
 import 'package:wecheat/models/contact.dart';
 import 'package:wecheat/providers/user_provider.dart';
@@ -22,7 +23,14 @@ void main() {
       await tester.binding.setSurfaceSize(size);
       await tester.pumpWidget(ProviderScope(overrides: [
         currentUserProvider.overrideWith(_User.new), contactOverridesProvider.overrideWith(_Overrides.new),
-      ], child: MaterialApp(theme: buildAppTheme(), home: const MinePage())));
+      ], child: MaterialApp(
+        theme: buildAppTheme(),
+        builder: (context, child) => FTheme(
+          data: appForuiTheme,
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: const MinePage(),
+      )));
       expect(find.text('收藏'), findsOneWidget);
       expect(find.text('朋友圈'), findsOneWidget);
       expect(find.text('表情'), findsOneWidget);

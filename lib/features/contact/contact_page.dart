@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart' show FTile;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lpinyin/lpinyin.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../core/constants.dart';
 import '../../core/widgets/app_avatar.dart';
+import '../../core/widgets/app_visual.dart';
 import '../../models/contact.dart';
 import '../../providers/contact_override_provider.dart';
 import '../../providers/conversation_provider.dart';
@@ -12,6 +14,7 @@ import '../../repositories/mock_data.dart';
 import 'add_ai_friend_page.dart';
 import 'ai_friend_page.dart';
 import 'contact_entries.dart';
+import 'desktop_contact_page.dart';
 
 /// 通讯录页：顶部功能入口 + A-Z 拼音分组 + 右侧字母索引栏
 class ContactPage extends ConsumerStatefulWidget {
@@ -32,9 +35,8 @@ class _ContactPageState extends ConsumerState<ContactPage> {
   ];
 
   void _addAiFriend(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddAiFriendPage()),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const AddAiFriendPage()));
   }
 
   /// 拼音首字母（非中文按首字符大写，无法识别归到 #）
@@ -60,7 +62,7 @@ class _ContactPageState extends ConsumerState<ContactPage> {
   Widget build(BuildContext context) {
     final overrides = ref.watch(contactOverridesProvider);
     final mockIds = MockData.contacts.map((c) => c.id).toSet();
-    final contacts = [
+    final contacts = <Contact>[
       for (final c in MockData.contacts) resolveContact(overrides, c),
       // 用户自建的联系人（AI 好友）随会话持久化，不在 Mock 列表里的补进来；
       // 群聊的占位 contact 不算联系人，不混入通讯录
@@ -70,9 +72,14 @@ class _ContactPageState extends ConsumerState<ContactPage> {
           conv.contact,
     ];
 
+    if (MediaQuery.sizeOf(context).width >= AppDimens.desktopBreakpoint) {
+      return DesktopContactPage(contacts: contacts);
+    }
+
     // 按拼音首字母分组排序
-    contacts.sort((a, b) => _letterOf(a.displayName)
-        .compareTo(_letterOf(b.displayName)));
+    contacts.sort(
+      (a, b) => _letterOf(a.displayName).compareTo(_letterOf(b.displayName)),
+    );
     // 扁平化：条目 + 分组头 + 联系人
     final items = <Object>[
       ..._entries.map((e) => e), // _EntryItem 用 record
@@ -92,84 +99,98 @@ class _ContactPageState extends ConsumerState<ContactPage> {
     final letters = letterIndex.keys.toList()..sort();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('通讯录'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add_alt),
-            onPressed: () => _addAiFriend(context),
-          ),
-        ],
-      ),
-      body: Stack(
+      backgroundColor: AppColors.canvas,
+      body: Column(
         children: [
-          ScrollablePositionedList.builder(
-            itemScrollController: _scrollController,
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              if (item is (IconData, Color, String)) {
-                return Column(
-                  children: [
-                    _EntryTile(
-                      icon: item.$1,
-                      color: item.$2,
-                      label: item.$3,
-                      onTap: () => _openEntry(item.$3),
-                    ),
-                    const Divider(indent: 16, height: 1),
-                  ],
-                );
-              }
-              if (item is String) {
-                return Container(
-                  width: double.infinity,
-                  color: AppColors.searchBg,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Text(item,
-                      style: const TextStyle(
-                          fontSize: 13, color: AppColors.textSecondary)),
-                );
-              }
-              final contact = item as Contact;
-              return Column(
-                children: [
-                  _ContactTile(contact: contact),
-                  const Divider(indent: 76, height: 1),
-                ],
-              );
-            },
+          AppPageHeading(
+            title: '通讯录',
+            subtitle: '${contacts.length} 位联系人',
+            action: IconButton.filledTonal(
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              onPressed: () => _addAiFriend(context),
+            ),
           ),
-          // 右侧 A-Z 索引栏
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final letter in letters)
-                    GestureDetector(
-                      onTap: () => _scrollController.scrollTo(
-                        index: letterIndex[letter]!,
-                        duration: const Duration(milliseconds: 200),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1),
-                        child: Text(
-                          letter,
-                          style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600),
+          Expanded(
+            child: Stack(
+              children: [
+                ScrollablePositionedList.builder(
+                  itemScrollController: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    if (item is (IconData, Color, String)) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: AppPanel(
+                          child: _EntryTile(
+                            icon: item.$1,
+                            color: item.$2,
+                            label: item.$3,
+                            onTap: () => _openEntry(item.$3),
+                          ),
                         ),
-                      ),
+                      );
+                    }
+                    if (item is String) {
+                      return Container(
+                        width: double.infinity,
+                        color: AppColors.canvas,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        child: Text(
+                          item,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      );
+                    }
+                    final contact = item as Contact;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 7),
+                      child: AppPanel(child: _ContactTile(contact: contact)),
+                    );
+                  },
+                ),
+                // 右侧 A-Z 索引栏
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final letter in letters)
+                          GestureDetector(
+                            onTap: () => _scrollController.scrollTo(
+                              index: letterIndex[letter]!,
+                              duration: const Duration(milliseconds: 200),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              child: Text(
+                                letter,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -193,19 +214,10 @@ class _EntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(AppDimens.avatarRadius),
-        ),
-        child: Icon(icon, color: Colors.white, size: 24),
-      ),
-      title: Text(label, style: const TextStyle(fontSize: 16)),
-      onTap: onTap,
+    return FTile(
+      prefix: AppIconBadge(icon: icon, color: color),
+      title: Text(label),
+      onPress: onTap,
     );
   }
 }
@@ -217,14 +229,14 @@ class _ContactTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: AppAvatar(contact: contact, size: 40),
-      title: Text(contact.displayName, style: const TextStyle(fontSize: 16)),
+    return FTile(
+      prefix: AppAvatar(contact: contact, size: 40),
+      title: Text(contact.displayName),
       // AI 好友进角色卡主页（猫箱式）
-      onTap: contact.isAi
+      onPress: contact.isAi
           ? () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => AiFriendPage(contact: contact)))
+              MaterialPageRoute(builder: (_) => AiFriendPage(contact: contact)),
+            )
           : null,
     );
   }

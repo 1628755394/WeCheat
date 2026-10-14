@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:forui/forui.dart' show FButton, FButtonSizeVariant;
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -406,13 +407,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       context: context,
       backgroundColor: AppColors.navBarBg,
       builder: (sheetContext) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-          child: GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            mainAxisSpacing: 20,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              GridView.count(
+                crossAxisCount: 4,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 20,
+                children: [
               _PanelItem(
                 icon: Icons.photo,
                 label: '相册',
@@ -509,6 +514,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   Navigator.pop(sheetContext);
                   _sendFile();
                 },
+              ),
+              _PanelItem(
+                icon: Icons.auto_awesome,
+                label: '智能回复',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _suggest();
+                },
+              ),
+                ],
+              ),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: OutputModeButton(),
               ),
             ],
           ),
@@ -1035,6 +1054,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final desktop =
+        MediaQuery.sizeOf(context).width >= AppDimens.desktopBreakpoint;
     final conversation = ref
         .watch(resolvedConversationListProvider)
         .value
@@ -1114,9 +1135,38 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     return Scaffold(
       backgroundColor: AppColors.chatBg,
       appBar: AppBar(
+        automaticallyImplyLeading: !desktop,
+        toolbarHeight: desktop ? 60 : 56,
+        centerTitle: !desktop,
+        backgroundColor: AppColors.navBarBg,
+        shape: desktop
+            ? const Border(
+                bottom: BorderSide(color: Color(0xFFECECEC), width: 0.5),
+              )
+            : null,
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
-          const OutputModeButton(),
+          if (desktop) ...[
+            IconButton(
+              tooltip: '聊天信息',
+              icon: const Icon(Icons.chat_bubble_outline, size: 23),
+              onPressed: () =>
+                  context.push('/chat/${widget.conversationId}/info'),
+            ),
+            PopupMenuButton<bool>(
+              tooltip: '发起通话',
+              icon: const Icon(Icons.phone_in_talk_outlined, size: 24),
+              onSelected: (video) => _isGroup
+                  ? _showAddPanel()
+                  : context.push(
+                      '/call/${widget.conversationId}?video=${video ? 1 : 0}',
+                    ),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: false, child: Text('语音通话')),
+                PopupMenuItem(value: true, child: Text('视频通话')),
+              ],
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.more_horiz),
             onPressed: () =>
@@ -1258,21 +1308,36 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 ],
               ),
             ),
-          _InputBar(
-            controller: _inputController,
-            hasText: _hasText,
-            recording: _recording,
-            voiceMode: _voiceMode,
-            emojiOn: _showEmoji,
-            onChanged: (v) => setState(() => _hasText = v.trim().isNotEmpty),
-            onSend: _send,
-            onAdd: _showAddPanel,
-            onMicStart: _micStart,
-            onMicEnd: _micEnd,
-            onVoiceMode: () => setState(() => _voiceMode = !_voiceMode),
-            onEmoji: () => setState(() => _showEmoji = !_showEmoji),
-            onSuggest: _suggest,
-          ),
+          if (desktop)
+            _DesktopComposer(
+              controller: _inputController,
+              hasText: _hasText,
+              voiceMode: _voiceMode,
+              recording: _recording,
+              onChanged: (v) => setState(() => _hasText = v.trim().isNotEmpty),
+              onSend: _send,
+              onAdd: _showAddPanel,
+              onFile: _sendFile,
+              onEmoji: () => setState(() => _showEmoji = !_showEmoji),
+              onVoiceMode: () => setState(() => _voiceMode = !_voiceMode),
+              onMicStart: _micStart,
+              onMicEnd: _micEnd,
+            )
+          else
+            _InputBar(
+              controller: _inputController,
+              hasText: _hasText,
+              recording: _recording,
+              voiceMode: _voiceMode,
+              emojiOn: _showEmoji,
+              onChanged: (v) => setState(() => _hasText = v.trim().isNotEmpty),
+              onSend: _send,
+              onAdd: _showAddPanel,
+              onMicStart: _micStart,
+              onMicEnd: _micEnd,
+              onVoiceMode: () => setState(() => _voiceMode = !_voiceMode),
+              onEmoji: () => setState(() => _showEmoji = !_showEmoji),
+            ),
           if (_showEmoji) _EmojiPanel(onPick: _insertEmoji),
         ],
       ),
@@ -1309,10 +1374,15 @@ class _MessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desktop =
+        MediaQuery.sizeOf(context).width >= AppDimens.desktopBreakpoint;
     return ListView.builder(
       controller: scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: desktop ? 24 : 16,
+        vertical: desktop ? 14 : 18,
+      ),
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final msg = messages[index];
@@ -1420,6 +1490,8 @@ class _MessageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desktop =
+        MediaQuery.sizeOf(context).width >= AppDimens.desktopBreakpoint;
     // 群聊里按 senderId 找出发言成员；找不到时回退会话头像
     Contact? sender;
     if (!message.isMe && (conversation?.contact.isGroup ?? false)) {
@@ -1457,19 +1529,35 @@ class _MessageRow extends StatelessWidget {
                 onLongPress: onLongPress,
                 onTap: message.type == MessageType.voice ? onPlayVoice : null,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: desktop ? 15 : 12,
+                    vertical: desktop ? 9 : 9,
                   ),
                   decoration: BoxDecoration(
                     color: message.isMe ? AppColors.bubbleMe : Colors.white,
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: BorderRadius.circular(desktop ? 5 : 4),
+                    border: null,
                   ),
                   child: streaming && message.content.isEmpty
                       ? const _TypingDots()
                       : _bubbleContent(context),
                 ),
               ),
+              if (message.type == MessageType.text)
+                Positioned(
+                  top: 12,
+                  left: message.isMe ? null : -6,
+                  right: message.isMe ? -6 : null,
+                  child: CustomPaint(
+                    size: const Size(7, 12),
+                    painter: _BubbleTail(
+                      color: message.isMe
+                          ? AppColors.bubbleMe
+                          : Colors.white,
+                      pointsRight: message.isMe,
+                    ),
+                  ),
+                ),
               // 记忆星标：被标记为重点记忆的消息右上角显示小星星
               if (message.isMemory)
                 const Positioned(
@@ -1525,7 +1613,7 @@ class _MessageRow extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.only(bottom: desktop ? 23 : 10),
       child: Row(
         mainAxisAlignment: message.isMe
             ? MainAxisAlignment.end
@@ -2009,6 +2097,35 @@ class _VariantArrow extends StatelessWidget {
   }
 }
 
+class _BubbleTail extends CustomPainter {
+  const _BubbleTail({required this.color, required this.pointsRight});
+  final Color color;
+  final bool pointsRight;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    if (pointsRight) {
+      path
+        ..moveTo(0, 0)
+        ..lineTo(size.width, size.height / 2)
+        ..lineTo(0, size.height)
+        ..close();
+    } else {
+      path
+        ..moveTo(size.width, 0)
+        ..lineTo(0, size.height / 2)
+        ..lineTo(size.width, size.height)
+        ..close();
+    }
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_BubbleTail oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.pointsRight != pointsRight;
+}
+
 /// AI 生成中的三点动画
 class _TypingDots extends StatefulWidget {
   const _TypingDots();
@@ -2097,9 +2214,10 @@ class _PanelItem extends StatelessWidget {
             height: 56,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.divider),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(icon, size: 28, color: Colors.black87),
+            child: Icon(icon, size: 27, color: AppColors.ink),
           ),
           const SizedBox(height: 6),
           Text(
@@ -2113,6 +2231,156 @@ class _PanelItem extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DesktopComposer extends StatelessWidget {
+  const _DesktopComposer({
+    required this.controller,
+    required this.hasText,
+    required this.voiceMode,
+    required this.recording,
+    required this.onChanged,
+    required this.onSend,
+    required this.onAdd,
+    required this.onFile,
+    required this.onEmoji,
+    required this.onVoiceMode,
+    required this.onMicStart,
+    required this.onMicEnd,
+  });
+
+  final TextEditingController controller;
+  final bool hasText;
+  final bool voiceMode;
+  final bool recording;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onSend;
+  final VoidCallback onAdd;
+  final VoidCallback onFile;
+  final VoidCallback onEmoji;
+  final VoidCallback onVoiceMode;
+  final VoidCallback onMicStart;
+  final VoidCallback onMicEnd;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 174,
+    decoration: const BoxDecoration(
+      color: Color(0xFFF5F5F5),
+      border: Border(top: BorderSide(color: Color(0xFFE1E1E1))),
+    ),
+    child: Column(
+      children: [
+        SizedBox(
+          height: 42,
+          child: Row(
+            children: [
+              _DesktopTool(
+                icon: Icons.emoji_emotions_outlined,
+                tooltip: '表情',
+                onTap: onEmoji,
+              ),
+              _DesktopTool(
+                icon: Icons.category_outlined,
+                tooltip: '更多',
+                onTap: onAdd,
+              ),
+              _DesktopTool(
+                icon: Icons.folder_open_outlined,
+                tooltip: '文件',
+                onTap: onFile,
+              ),
+              _DesktopTool(
+                icon: Icons.mic_none_outlined,
+                tooltip: '语音',
+                onTap: onVoiceMode,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: voiceMode
+              ? GestureDetector(
+                  onLongPressStart: (_) => onMicStart(),
+                  onLongPressEnd: (_) => onMicEnd(),
+                  onLongPressCancel: onMicEnd,
+                  behavior: HitTestBehavior.opaque,
+                  child: Center(child: Text(recording ? '松开发送' : '按住说话')),
+                )
+              : Focus(
+                  onKeyEvent: (_, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.enter &&
+                        !HardwareKeyboard.instance.isShiftPressed) {
+                      onSend();
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    expands: true,
+                    minLines: null,
+                    maxLines: null,
+                    textAlignVertical: TextAlignVertical.top,
+                    decoration: const InputDecoration(
+                      hintText: '输入消息',
+                      hintStyle: TextStyle(color: Color(0xFFB8B8B8)),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.fromLTRB(14, 2, 14, 2),
+                    ),
+                  ),
+                ),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 16, 9),
+            child: SizedBox(
+              width: 72,
+              height: 30,
+              child: TextButton(
+                onPressed: hasText ? onSend : null,
+                style: TextButton.styleFrom(
+                  backgroundColor: hasText
+                      ? AppColors.primary
+                      : const Color(0xFFE2E2E2),
+                  foregroundColor: hasText ? Colors.white : const Color(0xFF999999),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(4)),
+                  ),
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Text('发送', style: TextStyle(fontSize: 13)),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _DesktopTool extends StatelessWidget {
+  const _DesktopTool({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    icon: Icon(icon, size: 25, color: const Color(0xFF57595A)),
+    onPressed: onTap,
+    visualDensity: VisualDensity.compact,
+  );
 }
 
 /// 底部输入栏：语音/表情/加号面板 + 输入框 + 发送按钮
@@ -2129,7 +2397,6 @@ class _InputBar extends StatelessWidget {
   final VoidCallback onMicEnd;
   final VoidCallback onVoiceMode;
   final VoidCallback onEmoji;
-  final VoidCallback onSuggest;
 
   const _InputBar({
     required this.controller,
@@ -2144,7 +2411,6 @@ class _InputBar extends StatelessWidget {
     required this.onMicEnd,
     required this.onVoiceMode,
     required this.onEmoji,
-    required this.onSuggest,
   });
 
   @override
@@ -2152,8 +2418,11 @@ class _InputBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        color: AppColors.navBarBg,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppColors.divider)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -2174,7 +2443,8 @@ class _InputBar extends StatelessWidget {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: recording ? AppColors.primary : Colors.white,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: AppColors.divider),
                         ),
                         child: Text(
                           recording ? '松开 发送' : '按住 说话',
@@ -2199,7 +2469,8 @@ class _InputBar extends StatelessWidget {
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: AppColors.divider),
                         ),
                         child: TextField(
                           controller: controller,
@@ -2227,30 +2498,18 @@ class _InputBar extends StatelessWidget {
               ),
               onPressed: onEmoji,
             ),
-            IconButton(
-              icon: const Icon(Icons.auto_awesome, size: 24),
-              onPressed: onSuggest,
-              tooltip: '帮我想一句',
-            ),
             if (hasText)
               Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 4),
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    minimumSize: const Size(56, 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  onPressed: onSend,
+                child: FButton(
+                  size: FButtonSizeVariant.sm,
+                  onPress: onSend,
                   child: const Text('发送'),
                 ),
               )
             else
               IconButton(
-                icon: const Icon(Icons.add_circle_outline, size: 26),
+                icon: const Icon(Icons.add_circle_outline, size: 29),
                 onPressed: onAdd,
               ),
           ],
