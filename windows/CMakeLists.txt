@@ -55,6 +55,9 @@ add_subdirectory("runner")
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../tools/nuget.exe")
+  list(PREPEND CMAKE_PROGRAM_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../tools")
+endif()
 include(flutter/generated_plugins.cmake)
 
 
